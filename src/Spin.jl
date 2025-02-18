@@ -12,6 +12,10 @@ function exchangeEnergy(s1, M::InteractionMatrix, s2)::Float64
     return s1[1] * (M.m11 * s2[1] + M.m12 * s2[2] + M.m13 * s2[3]) + s1[2] * (M.m21 * s2[1] + M.m22 * s2[2] + M.m23 * s2[3]) + s1[3] * (M.m31 * s2[1] + M.m32 * s2[2] + M.m33 * s2[3])
 end
 
+function localFieldFromExchangeEnergy(M::InteractionMatrix, s2)::Vector{Float64}
+    return [(M.m11 * s2[1] + M.m12 * s2[2] + M.m13 * s2[3]), (M.m21 * s2[1] + M.m22 * s2[2] + M.m23 * s2[3]), (M.m31 * s2[1] + M.m32 * s2[2] + M.m33 * s2[3])]
+end
+
 function getEnergy(lattice::Lattice{D,N})::Float64 where {D,N}
     energy = 0.0
 
@@ -57,6 +61,28 @@ function getEnergyDifference(lattice::Lattice{D,N}, site::Int, newState::Tuple{F
     dE += dot(ds, getInteractionField(lattice, site))
 
     return dE
+end
+
+function getLocalField(lattice::Lattice{D,N}, site::Int)::Tuple{Float64,Float64,Float64} where {D,N}
+    localField = zeros(3)
+    oldState = getSpin(lattice, site)
+
+    # two-spin interactions
+    interactionSites = getInteractionSites(lattice, site)
+    interactionMatrices = getInteractionMatrices(lattice, site)
+    for i in eachindex(interactionSites)
+        localField .+= localFieldFromExchangeEnergy(interactionMatrices[i], getSpin(lattice, interactionSites[i]))
+    end
+
+    # onsite interaction
+    interactionOnsite = getInteractionOnsite(lattice, site)
+    localField .+= localFieldFromExchangeEnergy(interactionOnsite, oldState)
+    # Question: should local field be adopted to over-relaxation step?
+
+    # field interaction
+    localField .+= getInteractionField(lattice, site)
+
+    return (localField[1], localField[2], localField[3])
 end
 
 function getMagnetization(lattice::Lattice{D,N}) where {D,N}

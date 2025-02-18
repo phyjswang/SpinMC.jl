@@ -16,7 +16,7 @@ end
 
 mutable struct MonteCarlo{T<:Lattice,U<:AbstractRNG}
     lattice::T
-    
+
     beta::Float64
     thermalizationSweeps::Int
     measurementSweeps::Int
@@ -29,25 +29,28 @@ mutable struct MonteCarlo{T<:Lattice,U<:AbstractRNG}
     seed::UInt
     sweep::Int
 
+    overRelaxationRate::Float64
+
     observables::Observables
 end
 
 function MonteCarlo(
-    lattice::T, 
-    beta::Float64, 
-    thermalizationSweeps::Int, 
-    measurementSweeps::Int; 
-    measurementRate::Int = 1, 
-    replicaExchangeRate::Int = 10, 
-    reportInterval::Int = round(Int, 0.05 * (thermalizationSweeps + measurementSweeps)), 
-    checkpointInterval::Int = 3600, 
-    rng::U = copy(Random.GLOBAL_RNG), 
-    seed::UInt = rand(Random.RandomDevice(),UInt)
+    lattice::T,
+    beta::Float64,
+    thermalizationSweeps::Int,
+    measurementSweeps::Int;
+    measurementRate::Int = 1,
+    replicaExchangeRate::Int = 10,
+    reportInterval::Int = round(Int, 0.05 * (thermalizationSweeps + measurementSweeps)),
+    checkpointInterval::Int = 3600,
+    rng::U = copy(Random.GLOBAL_RNG),
+    seed::UInt = rand(Random.RandomDevice(),UInt),
+    overRelaxationRate::Float64 = 0.5
     ) where T<:Lattice where U<:AbstractRNG
 
-    mc = MonteCarlo(deepcopy(lattice), beta, thermalizationSweeps, measurementSweeps, measurementRate, replicaExchangeRate, reportInterval, checkpointInterval, rng, seed, 0, Observables(lattice))
+    mc = MonteCarlo(deepcopy(lattice), beta, thermalizationSweeps, measurementSweeps, measurementRate, replicaExchangeRate, reportInterval, checkpointInterval, rng, seed, 0, overRelaxationRate, Observables(lattice))
     Random.seed!(mc.rng, mc.seed)
-    
+
     return mc
 end
 
@@ -75,7 +78,7 @@ function run!(mc::MonteCarlo{T}; outfile::Union{String,Nothing}=nothing) where T
         enableMPI && (outfile *= "." * string(rank))
         isfile(outfile) && error("File ", outfile, " already exists. Terminating.")
     end
-    
+
     #init spin configuration
     if mc.sweep == 0
         for i in 1:length(mc.lattice)
@@ -94,6 +97,24 @@ function run!(mc::MonteCarlo{T}; outfile::Union{String,Nothing}=nothing) where T
     rank == 0 && @printf("Simulation started on %s.\n\n", Dates.format(Dates.now(), "dd u yyyy HH:MM:SS"))
 
     while mc.sweep < totalSweeps
+        # perform over-relaxation step
+        if rand(mc.rng) < mc.overRelaxationRate
+            for i in 1:length(mc.lattice)
+                # select random spin
+                site = rand(mc.rng, 1:length(mc.lattice))
+                oldState = getSpin(mc.lattice, site)
+
+                # get local field
+                localField = getLocalField(mc.lattice, site)
+
+                # component parallel to the local field
+                spinpara = (dot(oldState, localField) / norm(localField)^2 ) .* localField
+
+                # reflect across the local field
+                setSpin!(mc.lattice, site, 2 .* spinpara .- oldState)
+            end
+        end
+
         #perform local sweep
         for i in 1:length(mc.lattice)
             #select random spin
@@ -186,7 +207,7 @@ function run!(mc::MonteCarlo{T}; outfile::Union{String,Nothing}=nothing) where T
                 str *= @sprintf("\t\tthermalized : %s\n", thermalized)
                 str *= @sprintf("\t\tsweep rate : %.1f sweeps/s\n", sweeprate)
                 str *= @sprintf("\t\tsweep duration : %.3f ms\n", sweeptime * 1000)
-                
+
                 if enableMPI
                     for n in 1:commSize
                         str *= @sprintf("\t\tsimulation %d update acceptance rate: %.2f%%\n", n - 1, allLocalAppectanceRate[n])
@@ -220,8 +241,8 @@ function run!(mc::MonteCarlo{T}; outfile::Union{String,Nothing}=nothing) where T
         writeMonteCarlo(outfile, mc)
         rank == 0 && @printf("Checkpoint written on %s.\n", Dates.format(Dates.now(), "dd u yyyy HH:MM:SS"))
     end
-    
+
     #return
     rank == 0 && @printf("Simulation finished on %s.\n", Dates.format(Dates.now(), "dd u yyyy HH:MM:SS"))
-    return nothing    
+    return nothing
 end
