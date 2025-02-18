@@ -137,7 +137,7 @@ function run!(mc::MonteCarlo{T}; outfile::Union{String,Nothing}=nothing) where T
 
         #perform replica exchange
         if enableMPI && mc.sweep % mc.replicaExchangeRate == 0
-            #determine MPI rank to exchagne configuration with
+            #determine MPI rank to exchange configuration with
             if iseven(mc.sweep ÷ mc.replicaExchangeRate)
                 partnerRank = iseven(rank) ? rank + 1 : rank - 1
             else

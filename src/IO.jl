@@ -52,6 +52,7 @@ function writeMonteCarlo(filename::String, mc::MonteCarlo{Lattice{D,N}}) where {
         f["mc/observables/correlation/mean"] = mean(mc.observables.correlation)
         f["mc/observables/correlation/error"] = std_error(mc.observables.correlation)
 
+        # Cv = β² * (<E²> - <E>²) / N
         c(e) = mc.beta * mc.beta * (e[2] - e[1] * e[1]) * length(mc.lattice)
         ∇c(e) = [-2.0 * mc.beta * mc.beta * e[1] * length(mc.lattice), mc.beta * mc.beta * length(mc.lattice)]
         heat = mean(mc.observables.energy, c)
@@ -59,6 +60,7 @@ function writeMonteCarlo(filename::String, mc::MonteCarlo{Lattice{D,N}}) where {
         f["mc/observables/specificHeat/mean"] = heat
         f["mc/observables/specificHeat/error"] = dheat
 
+        # χ = β * N * (<m²> - <m>²)
         c1(m) = mc.beta * (m[2] - m[1] * m[1]) * length(mc.lattice)
         ∇c1(m) = [-2.0 * mc.beta * m[1] * length(mc.lattice), mc.beta * length(mc.lattice)]
         chi = mean(mc.observables.magnetization, c1)
