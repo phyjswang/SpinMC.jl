@@ -107,11 +107,16 @@ function run!(mc::MonteCarlo{T}; outfile::Union{String,Nothing}=nothing) where T
                 # get local field
                 localField = getLocalField(mc.lattice, site)
 
-                # component parallel to the local field
-                spinpara = (dot(oldState, localField) / norm(localField)^2 ) .* localField
+                if norm(localField) > 1e-8 # avoid division by zero
+                    # component parallel to the local field
+                    spinpara = (dot(oldState, localField) / norm(localField)^2 ) .* localField
 
-                # reflect across the local field
-                setSpin!(mc.lattice, site, 2 .* spinpara .- oldState)
+                    # reflect across the local field
+                    setSpin!(mc.lattice, site, 2 .* spinpara .- oldState)
+                else
+                    # if the local field is zero, use a random spin
+                    setSpin!(mc.lattice, site, uniformOnSphere(mc.rng))
+                end
             end
         end
 
