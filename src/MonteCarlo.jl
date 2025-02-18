@@ -54,6 +54,28 @@ function MonteCarlo(
     return mc
 end
 
+function overRelaxationSweep!(mc::MonteCarlo{T}) where T<:Lattice
+    for _ in 1:length(mc.lattice)
+        # select random spin
+        site = rand(mc.rng, 1:length(mc.lattice))
+        oldState = getSpin(mc.lattice, site)
+
+        # get local field
+        localField = getLocalField(mc.lattice, site)
+
+        if norm(localField) > 1e-8 # avoid division by zero
+            # component parallel to the local field
+            spinpara = (dot(oldState, localField) / norm(localField)^2 ) .* localField
+
+            # reflect across the local field
+            setSpin!(mc.lattice, site, 2 .* spinpara .- oldState)
+        else
+            # if the local field is zero, use a random spin
+            setSpin!(mc.lattice, site, uniformOnSphere(mc.rng))
+        end
+    end
+end
+
 function run!(mc::MonteCarlo{T}; outfile::Union{String,Nothing}=nothing) where T<:Lattice
     #init MPI
     rank = 0
@@ -98,25 +120,13 @@ function run!(mc::MonteCarlo{T}; outfile::Union{String,Nothing}=nothing) where T
 
     while mc.sweep < totalSweeps
         # perform over-relaxation step
-        if rand(mc.rng) < mc.overRelaxationRate
-            for i in 1:length(mc.lattice)
-                # select random spin
-                site = rand(mc.rng, 1:length(mc.lattice))
-                oldState = getSpin(mc.lattice, site)
-
-                # get local field
-                localField = getLocalField(mc.lattice, site)
-
-                if norm(localField) > 1e-8 # avoid division by zero
-                    # component parallel to the local field
-                    spinpara = (dot(oldState, localField) / norm(localField)^2 ) .* localField
-
-                    # reflect across the local field
-                    setSpin!(mc.lattice, site, 2 .* spinpara .- oldState)
-                else
-                    # if the local field is zero, use a random spin
-                    setSpin!(mc.lattice, site, uniformOnSphere(mc.rng))
-                end
+        if mc.overRelaxationRate < 1.0
+            if rand(mc.rng) < mc.overRelaxationRate
+                overRelaxationSweep!(mc)
+            end
+        else
+            for _ in 1:mc.overRelaxationRate
+                overRelaxationSweep!(mc)
             end
         end
 
