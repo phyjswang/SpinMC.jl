@@ -106,3 +106,25 @@ function getCorrelation(lattice::Lattice{D,N}) where {D,N}
     end
     return corr
 end
+
+function getCorrelationXY(lattice::Lattice{D,N}) where {D,N}
+    corr = zeros(length(lattice), length(lattice.unitcell.basis))
+    for i in 1:length(lattice.unitcell.basis)
+        s0 = getSpin(lattice, i)
+        for j in 1:length(lattice)
+            corr[j,i] = dot(s0[1:2], getSpin(lattice, j)[1:2])
+        end
+    end
+    return corr
+end
+
+function getCorrelationZ(lattice::Lattice{D,N}) where {D,N}
+    corr = zeros(length(lattice), length(lattice.unitcell.basis))
+    for i in 1:length(lattice.unitcell.basis)
+        s0 = getSpin(lattice, i)
+        for j in 1:length(lattice)
+            corr[j,i] = s0[3] * getSpin(lattice, j)[3]
+        end
+    end
+    return corr
+end

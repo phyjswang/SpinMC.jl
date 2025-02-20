@@ -6,10 +6,19 @@ mutable struct Observables
     magnetization::ErrorPropagator{Float64,32}
     magnetizationVector::LogBinner{Vector{Float64},32,BinningAnalysis.Variance{Vector{Float64}}}
     correlation::LogBinner{Array{Float64,2},32,BinningAnalysis.Variance{Array{Float64,2}}}
+    correlationXY::LogBinner{Array{Float64,2},32,BinningAnalysis.Variance{Array{Float64,2}}}
+    correlationZ::LogBinner{Array{Float64,2},32,BinningAnalysis.Variance{Array{Float64,2}}}
 end
 
 function Observables(lattice::T) where T<:Lattice
-    return Observables(ErrorPropagator(Float64), ErrorPropagator(Float64), LogBinner(zeros(Float64,3)), LogBinner(zeros(Float64,lattice.length, length(lattice.unitcell.basis))))
+    return Observables(
+        ErrorPropagator(Float64),
+        ErrorPropagator(Float64),
+        LogBinner(zeros(Float64,3)),
+        LogBinner(zeros(Float64,lattice.length, length(lattice.unitcell.basis))),
+        LogBinner(zeros(Float64,lattice.length, length(lattice.unitcell.basis))),
+        LogBinner(zeros(Float64,lattice.length, length(lattice.unitcell.basis)))
+    )
 end
 
 function performMeasurements!(observables::Observables, lattice::T, energy::Float64) where T<:Lattice
@@ -24,4 +33,6 @@ function performMeasurements!(observables::Observables, lattice::T, energy::Floa
 
     #measure spin correlations
     push!(observables.correlation, getCorrelation(lattice))
+    push!(observables.correlationXY, getCorrelationXY(lattice))
+    push!(observables.correlationZ, getCorrelationZ(lattice))
 end

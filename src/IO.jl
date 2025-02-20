@@ -51,6 +51,10 @@ function writeMonteCarlo(filename::String, mc::MonteCarlo{Lattice{D,N}}) where {
         f["mc/observables/magnetizationVector/error"] = std_error(mc.observables.magnetizationVector)
         f["mc/observables/correlation/mean"] = mean(mc.observables.correlation)
         f["mc/observables/correlation/error"] = std_error(mc.observables.correlation)
+        f["mc/observables/correlationXY/mean"] = mean(mc.observables.correlationXY)
+        f["mc/observables/correlationXY/error"] = std_error(mc.observables.correlationXY)
+        f["mc/observables/correlationZ/mean"] = mean(mc.observables.correlationZ)
+        f["mc/observables/correlationZ/error"] = std_error(mc.observables.correlationZ)
 
         # Cv = β² * (<E²> - <E>²) / N
         c(e) = mc.beta * mc.beta * (e[2] - e[1] * e[1]) * length(mc.lattice)
