@@ -19,6 +19,7 @@ function writeMonteCarlo(filename::String, mc::MonteCarlo{Lattice{D,N}}) where {
         f["mc/measurementRate"] = mc.measurementRate
         f["mc/reportInterval"] = mc.reportInterval
         f["mc/checkpointInterval"] = mc.checkpointInterval
+        f["mc/overRelaxationRate"] = mc.overRelaxationRate
         f["mc/seed"] = mc.seed
         f["mc/sweep"] = mc.sweep
 
@@ -65,12 +66,12 @@ function writeMonteCarlo(filename::String, mc::MonteCarlo{Lattice{D,N}}) where {
         f["mc/observables/specificHeat/error"] = dheat
 
         # χ = β * N * (<m²> - <m>²)
-        c1(m) = mc.beta * (m[2] - m[1] * m[1]) * length(mc.lattice)
-        ∇c1(m) = [-2.0 * mc.beta * m[1] * length(mc.lattice), mc.beta * length(mc.lattice)]
-        chi = mean(mc.observables.magnetization, c1)
-        dchi = sqrt(abs(var(mc.observables.magnetization, ∇c1, BinningAnalysis._reliable_level(mc.observables.magnetization))) / mc.observables.magnetization.count[BinningAnalysis._reliable_level(mc.observables.magnetization)])
-        f["mc/observables/magneticSusceptibility/mean"] = chi
-        f["mc/observables/magneticSusceptibility/error"] = dchi
+        chi(m) = mc.beta * (m[2] - m[1] * m[1]) * length(mc.lattice)
+        ∇chi(m) = [-2.0 * mc.beta * m[1] * length(mc.lattice), mc.beta * length(mc.lattice)]
+        magneticSusceptibility = mean(mc.observables.magnetization, chi)
+        dmagneticSusceptibility = sqrt(abs(var(mc.observables.magnetization, ∇chi, BinningAnalysis._reliable_level(mc.observables.magnetization))) / mc.observables.magnetization.count[BinningAnalysis._reliable_level(mc.observables.magnetization)])
+        f["mc/observables/magneticSusceptibility/mean"] = magneticSusceptibility
+        f["mc/observables/magneticSusceptibility/error"] = dmagneticSusceptibility
     end
 end
 

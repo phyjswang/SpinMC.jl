@@ -120,13 +120,15 @@ function run!(mc::MonteCarlo{T}; outfile::Union{String,Nothing}=nothing) where T
 
     while mc.sweep < totalSweeps
         # perform over-relaxation step
-        if mc.overRelaxationRate < 1.0
-            if rand(mc.rng) < mc.overRelaxationRate
-                overRelaxationSweep!(mc)
-            end
-        else
-            for _ in 1:mc.overRelaxationRate
-                overRelaxationSweep!(mc)
+        if mc.overRelaxationRate > 0.0
+            if mc.overRelaxationRate < 1.0
+                if rand(mc.rng) < mc.overRelaxationRate
+                    overRelaxationSweep!(mc)
+                end
+            else
+                for _ in 1:mc.overRelaxationRate
+                    overRelaxationSweep!(mc)
+                end
             end
         end
 
