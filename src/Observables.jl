@@ -1,4 +1,5 @@
 using BinningAnalysis
+using TimerOutputs
 
 mutable struct Observables
     energy::ErrorPropagator{Float64,32}
@@ -21,7 +22,7 @@ function Observables(lattice::T) where T<:Lattice
     )
 end
 
-function performMeasurements!(observables::Observables, lattice::T, energy::Float64) where T<:Lattice
+@timeit_debug function performMeasurements!(observables::Observables, lattice::T, energy::Float64) where T<:Lattice
     #measure energy and energy^2
     push!(observables.energy, energy / length(lattice), energy * energy / (length(lattice) * length(lattice)))
 

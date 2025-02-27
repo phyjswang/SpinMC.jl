@@ -2,6 +2,7 @@ using Random
 using Dates
 using Printf
 using MPI
+using TimerOutputs
 
 mutable struct MonteCarloStatistics
     sweeps::Int
@@ -54,29 +55,68 @@ function MonteCarlo(
     return mc
 end
 
-function overRelaxationSweep!(mc::MonteCarlo{T}) where T<:Lattice
+@timeit_debug function overRelaxationSweep!(mc::MonteCarlo{T}) where T<:Lattice
     for _ in 1:length(mc.lattice)
         # select random spin
         site = rand(mc.rng, 1:length(mc.lattice))
         oldState = getSpin(mc.lattice, site)
 
-        # get local field
-        localField = getLocalField(mc.lattice, site)
+        # calculate local field only
+        localField = calLocalField(mc.lattice, site)
 
         if norm(localField) > 1e-8 # avoid division by zero
             # component parallel to the local field
             spinpara = (dot(oldState, localField) / norm(localField)^2 ) .* localField
 
             # reflect across the local field
-            setSpin!(mc.lattice, site, 2 .* spinpara .- oldState)
+            newState = 2 .* spinpara .- oldState
         else
             # if the local field is zero, use a random spin
-            setSpin!(mc.lattice, site, uniformOnSphere(mc.rng))
+            newState = uniformOnSphere(mc.rng)
         end
+        setSpin!(mc.lattice, site, newState)
     end
 end
 
-function run!(mc::MonteCarlo{T}; outfile::Union{String,Nothing}=nothing) where T<:Lattice
+@timeit_debug function localSweep!(mc::MonteCarlo{T}, statistics::MonteCarloStatistics, energy::Float64) where T<:Lattice
+    for _ in 1:length(mc.lattice)
+        #select random spin
+        site = rand(mc.rng, 1:length(mc.lattice))
+
+        #propose new spin configuration
+        newSpinState = uniformOnSphere(mc.rng)
+        energyDifference = getEnergyDifference(mc.lattice, site, newSpinState)
+
+        #check acceptance of new configuration
+        statistics.attemptedLocalUpdates += 1
+        p = exp(-mc.beta * energyDifference)
+        if (rand(mc.rng) < min(1.0, p))
+            ds = newSpinState .- getSpin(mc.lattice, site)
+            # update local fields
+            if mc.lattice.unitcell.dipolar ≠ 0.0
+                error("TODO: Dipolar interaction")
+            else
+                interactionSites = getInteractionSites(mc.lattice, site)
+                for i in eachindex(interactionSites)
+                    updateLocalField!(mc.lattice, interactionSites[i], site, ds)
+                end
+            end
+            # update spin
+            setSpin!(mc.lattice, site, newSpinState)
+            energy += energyDifference
+            statistics.acceptedLocalUpdates += 1
+        end
+    end
+    return energy
+end
+
+function run!(
+    mc::MonteCarlo{T};
+    outfile::Union{String,Nothing}=nothing,
+    timer::Bool = false
+) where T<:Lattice
+    reset_timer!()
+
     #init MPI
     rank = 0
     commSize = 1
@@ -101,10 +141,14 @@ function run!(mc::MonteCarlo{T}; outfile::Union{String,Nothing}=nothing) where T
         isfile(outfile) && error("File ", outfile, " already exists. Terminating.")
     end
 
-    #init spin configuration
     if mc.sweep == 0
+        #init spin configuration
         for i in 1:length(mc.lattice)
             setSpin!(mc.lattice, i, uniformOnSphere(mc.rng))
+        end
+        # init local fields
+        for i in 1:length(mc.lattice)
+            setLocalField!(mc.lattice, i, calLocalField(mc.lattice, i))
         end
     end
 
@@ -118,9 +162,12 @@ function run!(mc::MonteCarlo{T}; outfile::Union{String,Nothing}=nothing) where T
     statistics = MonteCarloStatistics()
     rank == 0 && @printf("Simulation started on %s.\n\n", Dates.format(Dates.now(), "dd u yyyy HH:MM:SS"))
 
+    # perform over-relaxation only if there is no onsite interactions
+    allowOverRelaxation = maximum(maximum.(mc.lattice.unitcell.interactionsOnsite)) == 0.0 && mc.lattice.unitcell.dipolar == 0.0
+
     while mc.sweep < totalSweeps
         # perform over-relaxation step
-        if mc.overRelaxationRate > 0.0
+        if allowOverRelaxation && mc.overRelaxationRate > 0.0
             if mc.overRelaxationRate < 1.0
                 if rand(mc.rng) < mc.overRelaxationRate
                     overRelaxationSweep!(mc)
@@ -130,26 +177,14 @@ function run!(mc::MonteCarlo{T}; outfile::Union{String,Nothing}=nothing) where T
                     overRelaxationSweep!(mc)
                 end
             end
+            # update local fields after over-relaxation
+            for i in 1:length(mc.lattice)
+                setLocalField!(mc.lattice, i, calLocalField(mc.lattice, i))
+            end
         end
 
         #perform local sweep
-        for i in 1:length(mc.lattice)
-            #select random spin
-            site = rand(mc.rng, 1:length(mc.lattice))
-
-            #propose new spin configuration
-            newSpinState = uniformOnSphere(mc.rng)
-            energyDifference = getEnergyDifference(mc.lattice, site, newSpinState)
-
-            #check acceptance of new configuration
-            statistics.attemptedLocalUpdates += 1
-            p = exp(-mc.beta * energyDifference)
-            if (rand(mc.rng) < min(1.0, p))
-                setSpin!(mc.lattice, site, newSpinState)
-                energy += energyDifference
-                statistics.acceptedLocalUpdates += 1
-            end
-        end
+        energy = localSweep!(mc, statistics, energy)
         statistics.sweeps += 1
 
         #perform replica exchange
@@ -239,6 +274,9 @@ function run!(mc::MonteCarlo{T}; outfile::Union{String,Nothing}=nothing) where T
 
             #reset statistics
             statistics = MonteCarloStatistics()
+            if timer
+                print_timer()
+            end
         end
 
         #write checkpoint
