@@ -1,7 +1,7 @@
 module SpinMC
 
 include("UnitCell.jl")
-export UnitCell, addInteraction!, setInteractionOnsite!, setField!, addBasisSite!
+export UnitCell, addInteraction!, setInteractionOnsite!, setField!, addBasisSite!, setDipolar!
 include("InteractionMatrix.jl")
 include("Lattice.jl")
 export Lattice, size, length, getSpin, setSpin!, getSitePosition

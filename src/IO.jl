@@ -57,6 +57,11 @@ function writeMonteCarlo(filename::String, mc::MonteCarlo{Lattice{D,N}}) where {
         f["mc/observables/correlationZ/mean"] = mean(mc.observables.correlationZ)
         f["mc/observables/correlationZ/error"] = std_error(mc.observables.correlationZ)
 
+        f["mc/observables/afpara/mean"] = mean(mc.observables.afpara)
+        f["mc/observables/afpara/error"] = std_error(mc.observables.afpara)
+        f["mc/observables/aaperp/mean"] = mean(mc.observables.aaperp)
+        f["mc/observables/aaperp/error"] = std_error(mc.observables.aaperp)
+
         # Cv = β² * (<E²> - <E>²) / N
         c(e) = mc.beta * mc.beta * (e[2] - e[1] * e[1]) * length(mc.lattice)
         ∇c(e) = [-2.0 * mc.beta * mc.beta * e[1] * length(mc.lattice), mc.beta * mc.beta * length(mc.lattice)]

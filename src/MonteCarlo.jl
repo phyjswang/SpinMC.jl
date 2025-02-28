@@ -49,7 +49,21 @@ function MonteCarlo(
     overRelaxationRate::Float64 = 0.5
     ) where T<:Lattice where U<:AbstractRNG
 
-    mc = MonteCarlo(deepcopy(lattice), beta, thermalizationSweeps, measurementSweeps, measurementRate, replicaExchangeRate, reportInterval, checkpointInterval, rng, seed, 0, overRelaxationRate, Observables(lattice))
+    mc = MonteCarlo(
+        deepcopy(lattice),
+        beta,
+        thermalizationSweeps,
+        measurementSweeps,
+        measurementRate,
+        replicaExchangeRate,
+        reportInterval,
+        checkpointInterval,
+        rng,
+        seed,
+        0,
+        overRelaxationRate,
+        Observables(lattice)
+    )
     Random.seed!(mc.rng, mc.seed)
 
     return mc
@@ -93,12 +107,18 @@ end
         if (rand(mc.rng) < min(1.0, p))
             ds = newSpinState .- getSpin(mc.lattice, site)
             # update local fields
+            interactionSites = getInteractionSites(mc.lattice, site)
             if mc.lattice.unitcell.dipolar ≠ 0.0
-                error("TODO: Dipolar interaction")
+                for i in vcat(1:site-1,site+1:length(mc.lattice))
+                    if i ∈ interactionSites
+                        updateLocalField_complex!(mc.lattice,  i, site, ds)
+                    else
+                        updateLocalField_dipolar!(mc.lattice,  i, site, ds)
+                    end
+                end
             else
-                interactionSites = getInteractionSites(mc.lattice, site)
                 for i in eachindex(interactionSites)
-                    updateLocalField!(mc.lattice, interactionSites[i], site, ds)
+                    updateLocalField_simple!(mc.lattice, interactionSites[i], site, ds)
                 end
             end
             # update spin
@@ -113,7 +133,8 @@ end
 function run!(
     mc::MonteCarlo{T};
     outfile::Union{String,Nothing}=nothing,
-    timer::Bool = false
+    timer::Bool = false,
+    saveDipolarInteraction::Bool = false
 ) where T<:Lattice
     reset_timer!()
 

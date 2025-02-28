@@ -1,3 +1,5 @@
+using HDF5
+
 mutable struct Lattice{D,N}
     size::NTuple{D, Int} #linear extent of the lattice in number of unit cells
     length::Int #Number of sites N_sites
@@ -17,7 +19,15 @@ mutable struct Lattice{D,N}
     Lattice(D,N) = new{D,N}()
 end
 
-function Lattice(uc::UnitCell{D}, L::NTuple{D,Int}) where D
+include("Ewald.jl")
+
+function Lattice(
+    uc::UnitCell{D},
+    L::NTuple{D,Int};
+    loadDipolarInteractionTensor::Bool = false,
+    saveDipolarInteractionTensor::Bool = false,
+    fileDipolarInteraction::String = ""
+) where D
     #parse interactions
     ##For every basis site b, generate list of sites which b interacts with and store the corresponding interaction sites and matrices.
     ##Interaction sites are specified by the target site's basis id, b_target, and the offset in units of primitive lattice vectors.
@@ -38,7 +48,7 @@ function Lattice(uc::UnitCell{D}, L::NTuple{D,Int}) where D
         push!(interactionTargetSites[b1], (b2, offset, M))
         @label endb1
 
-        # Note the following means that the bond interaction info is saved twice, once for each site of the bond
+        # JW: Note the following means that the bond interaction info is saved twice, once for each site of the bond
         #locate existing coupling from target site and add interaction matrix
         for i in 1:length(interactionTargetSites[b2])
             if interactionTargetSites[b2][i][1] == b1 && interactionTargetSites[b2][i][2] == (x->-x).(offset)
@@ -142,6 +152,20 @@ function Lattice(uc::UnitCell{D}, L::NTuple{D,Int}) where D
 
     # init dipolar interactions
     if uc.dipolar ≠ 0.0
+        lattice.interactionDipolar = repeat([InteractionMatrix()], lattice.length, lattice.length)
+        if loadDipolarInteractionTensor
+            println("Load dipolar interaction tensor from ", fileDipolarInteraction)
+            interactionDipolar = h5read(fileDipolarInteraction,"interactionDipolar")
+            for j in 1:lattice.length, i in 1:lattice.length
+                lattice.interactionDipolar[i,j] = InteractionMatrix(interactionDipolar[i,j]...)
+            end
+        else
+            addDipolarInteractions!(lattice)
+            if saveDipolarInteractionTensor
+                println("Dipolar interaction tensor is saved to ", fileDipolarInteraction)
+                h5write(fileDipolarInteraction, "interactionDipolar", lattice.interactionDipolar)
+            end
+        end
     end
 
     #return lattice

@@ -90,6 +90,12 @@ function getEnergyDifference(lattice::Lattice{D,N}, site::Int, newState::Tuple{F
     interactionOnsite = getInteractionOnsite(lattice, site)
     dE += exchangeEnergy(newState, interactionOnsite, newState) - exchangeEnergy(oldState, interactionOnsite, oldState)
 
+    # onsite energy difference due to dipolar interaction
+    if lattice.unitcell.dipolar ≠ 0.0
+        interactionOnsiteDipolar = lattice.interactionDipolar[site,site]
+        dE += (exchangeEnergy(newState, interactionOnsiteDipolar, newState) - exchangeEnergy(oldState, interactionOnsiteDipolar, oldState)) * lattice.unitcell.dipolar
+    end
+
     return dE
 end
 
@@ -116,7 +122,12 @@ end
 
     # dipolar contribution
     if lattice.unitcell.dipolar ≠ 0.0
-        error("TODO: dipolar interaction")
+        for i in vcat(1:site-1,site+1:lattice.length)
+            localField = localFieldFromExchangeEnergy(lattice.interactionDipolar[site,i], getSpin(lattice, i))
+            hx += localField[1] * lattice.unitcell.dipolar
+            hy += localField[2] * lattice.unitcell.dipolar
+            hz += localField[3] * lattice.unitcell.dipolar
+        end
     end
 
     return (hx,hy,hz)
@@ -124,17 +135,40 @@ end
 
 # change of local field at site j due to change of spin at site i
 # Dⱼ → D'ⱼ = Dⱼ + Aⱼᵢ dSᵢ
-function updateLocalField!(lattice::Lattice{D,N}, sitej::Int, site::Int, ds::Tuple{Float64,Float64,Float64})::Float64 where {D,N}
+function updateLocalField_simple!(lattice::Lattice{D,N}, sitej::Int, site::Int, ds::Tuple{Float64,Float64,Float64})::Float64 where {D,N}
     interactionSites = getInteractionSites(lattice, sitej)
     interactionMatrices = getInteractionMatrices(lattice, sitej)
     idx = findfirst(x -> x == site, interactionSites)
-    if lattice.unitcell.dipolar ≠ 0.0
-        error("TODO: dipolar interaction")
-    end
-    setLocalField!(lattice, sitej, getLocalField(lattice, sitej) .+ localFieldFromExchangeEnergy(interactionMatrices[idx], ds))
+    setLocalField!(
+        lattice,
+        sitej,
+        getLocalField(lattice, sitej) .+ localFieldFromExchangeEnergy(interactionMatrices[idx], ds)
+    )
 end
 
-function getMagnetization(lattice::Lattice{D,N}) where {D,N}
+function updateLocalField_complex!(lattice::Lattice{D,N}, sitej::Int, site::Int, ds::Tuple{Float64,Float64,Float64})::Float64 where {D,N}
+    interactionSites = getInteractionSites(lattice, sitej)
+    interactionMatrices = getInteractionMatrices(lattice, sitej)
+    idx = findfirst(x -> x == site, interactionSites)
+    setLocalField!(
+        lattice,
+        sitej,
+        getLocalField(lattice, sitej) .+
+        localFieldFromExchangeEnergy(interactionMatrices[idx], ds) .+
+        localFieldFromExchangeEnergy(lattice.interactionDipolar[sitej, site], ds) .* lattice.unitcell.dipolar
+    )
+end
+
+function updateLocalField_dipolar!(lattice::Lattice{D,N}, sitej::Int, site::Int, ds::Tuple{Float64,Float64,Float64})::Float64 where {D,N}
+    setLocalField!(
+        lattice,
+        sitej,
+        getLocalField(lattice, sitej) .+
+        localFieldFromExchangeEnergy(lattice.interactionDipolar[sitej, site], ds) .* lattice.unitcell.dipolar
+    )
+end
+
+function getMagnetization_old(lattice::Lattice{D,N}) where {D,N}
     mx, my, mz = 0.0, 0.0, 0.0
     for i in 1:length(lattice)
         spin = getSpin(lattice, i)
@@ -143,6 +177,19 @@ function getMagnetization(lattice::Lattice{D,N}) where {D,N}
         mz += spin[3]
     end
     return [mx, my, mz] / length(lattice)
+end
+
+# sublattice dependent magnetization
+function getMagnetization(lattice::Lattice{D,N}) where {D,N}
+    nb = length(lattice.unitcell.basis)
+    lsm = zeros(3*nb)
+    for i in 1:length(lattice)
+        spin = getSpin(lattice, i)
+        lsm[(mod1(i,nb)-1)*3+1] += spin[1]
+        lsm[(mod1(i,nb)-1)*3+2] += spin[2]
+        lsm[(mod1(i,nb)-1)*3+3] += spin[3]
+    end
+    return lsm ./ (length(lattice)/nb)
 end
 
 function getCorrelation(lattice::Lattice{D,N}) where {D,N}
