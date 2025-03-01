@@ -162,6 +162,9 @@ function Lattice(
         else
             addDipolarInteractions!(lattice)
             if saveDipolarInteractionTensor
+                # only the field `interactionDipolar` is saved
+                ## make sure the folder exists
+                isdir(dirname(fileDipolarInteraction)) || mkdir(dirname(fileDipolarInteraction))
                 println("Dipolar interaction tensor is saved to ", fileDipolarInteraction)
                 h5write(fileDipolarInteraction, "interactionDipolar", lattice.interactionDipolar)
             end
