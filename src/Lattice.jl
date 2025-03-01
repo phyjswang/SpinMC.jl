@@ -160,11 +160,12 @@ function Lattice(
                 lattice.interactionDipolar[i,j] = InteractionMatrix(interactionDipolar[i,j]...)
             end
         else
-            addDipolarInteractions!(lattice)
+            timeused = @elapsed addDipolarInteractions!(lattice)
+            println("Time used for Ewald sum is ", ceil(timeused), "s.")
             if saveDipolarInteractionTensor
                 # only the field `interactionDipolar` is saved
                 ## make sure the folder exists
-                isdir(dirname(fileDipolarInteraction)) || mkdir(dirname(fileDipolarInteraction))
+                isdir(dirname(fileDipolarInteraction)) || mkpath(dirname(fileDipolarInteraction))
                 println("Dipolar interaction tensor is saved to ", fileDipolarInteraction)
                 h5write(fileDipolarInteraction, "interactionDipolar", lattice.interactionDipolar)
             end
