@@ -44,12 +44,8 @@ function writeMonteCarlo(filename::String, mc::MonteCarlo{Lattice{D,N}}) where {
 
         f["mc/observables/energyDensity/mean"] = means(mc.observables.energy)[1]
         f["mc/observables/energyDensity/error"] = std_errors(mc.observables.energy)[1]
-        # f["mc/observables/magnetization/mean"] = mean(mc.observables.magnetization)
-        f["mc/observables/magnetization/mean"] = means(mc.observables.magnetization)[1]
-        # f["mc/observables/magnetization/error"] = std_error(mc.observables.magnetization)
-        f["mc/observables/magnetization/error"] = std_errors(mc.observables.magnetization)[1]
-        f["mc/observables/magnetizationVector/mean"] = mean(mc.observables.magnetizationVector)
-        f["mc/observables/magnetizationVector/error"] = std_error(mc.observables.magnetizationVector)
+        f["mc/observables/magnetizationVector/mean"] = mean(mc.observables.lsmagnetizationVector)
+        f["mc/observables/magnetizationVector/error"] = std_error(mc.observables.lsmagnetizationVector)
         f["mc/observables/correlation/mean"] = mean(mc.observables.correlation)
         f["mc/observables/correlation/error"] = std_error(mc.observables.correlation)
         f["mc/observables/correlationXY/mean"] = mean(mc.observables.correlationXY)
@@ -57,10 +53,20 @@ function writeMonteCarlo(filename::String, mc::MonteCarlo{Lattice{D,N}}) where {
         f["mc/observables/correlationZ/mean"] = mean(mc.observables.correlationZ)
         f["mc/observables/correlationZ/error"] = std_error(mc.observables.correlationZ)
 
+        N = length(mc.lattice)
+        nb = length(mc.lattice.basis)
+
+        # χ = β * N * (<o²> - <o>²)
+        chi(o) = mc.beta * (o[2] - o[1] * o[1]) * (N / nb)
+        ∇chi(o) = [-2.0 * mc.beta * o[1] * (N/nb), mc.beta * (N/nb)]
         f["mc/observables/afpara/mean"] = mean(mc.observables.afpara)
         f["mc/observables/afpara/error"] = std_error(mc.observables.afpara)
+        f["mc/observables/afparaSusceptibility/mean"] = mean(mc.observables.afpara, chi)
+        f["mc/observables/afparaSusceptibility/error"] = sqrt(abs(var(mc.observables.afpara, ∇chi, BinningAnalysis._reliable_level(mc.observables.afpara))) / mc.observables.afpara.count[BinningAnalysis._reliable_level(mc.observables.afpara)])
         f["mc/observables/aaperp/mean"] = mean(mc.observables.aaperp)
         f["mc/observables/aaperp/error"] = std_error(mc.observables.aaperp)
+        f["mc/observables/aaperpSusceptibility/mean"] = mean(mc.observables.aaperp)
+        f["mc/observables/aaperpSusceptibility/error"] = sqrt(abs(var(mc.observables.aaperp, ∇chi, BinningAnalysis._reliable_level(mc.observables.aaperp))) / mc.observables.aaperp.count[BinningAnalysis._reliable_level(mc.observables.aaperp)])
 
         # Cv = β² * (<E²> - <E>²) / N
         c(e) = mc.beta * mc.beta * (e[2] - e[1] * e[1]) * length(mc.lattice)
@@ -69,14 +75,6 @@ function writeMonteCarlo(filename::String, mc::MonteCarlo{Lattice{D,N}}) where {
         dheat = sqrt(abs(var(mc.observables.energy, ∇c, BinningAnalysis._reliable_level(mc.observables.energy))) / mc.observables.energy.count[BinningAnalysis._reliable_level(mc.observables.energy)])
         f["mc/observables/specificHeat/mean"] = heat
         f["mc/observables/specificHeat/error"] = dheat
-
-        # χ = β * N * (<m²> - <m>²)
-        chi(m) = mc.beta * (m[2] - m[1] * m[1]) * length(mc.lattice)
-        ∇chi(m) = [-2.0 * mc.beta * m[1] * length(mc.lattice), mc.beta * length(mc.lattice)]
-        magneticSusceptibility = mean(mc.observables.magnetization, chi)
-        dmagneticSusceptibility = sqrt(abs(var(mc.observables.magnetization, ∇chi, BinningAnalysis._reliable_level(mc.observables.magnetization))) / mc.observables.magnetization.count[BinningAnalysis._reliable_level(mc.observables.magnetization)])
-        f["mc/observables/magneticSusceptibility/mean"] = magneticSusceptibility
-        f["mc/observables/magneticSusceptibility/error"] = dmagneticSusceptibility
     end
 end
 
