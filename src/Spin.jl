@@ -191,6 +191,7 @@ function getMagnetization_old(lattice::Lattice{D,N}) where {D,N}
 end
 
 # sublattice dependent magnetization
+# lsm = [m1x, m1y, m1z, m2x, m2y, m2z, ...]
 function getMagnetization(lattice::Lattice{D,N}) where {D,N}
     nb = length(lattice.unitcell.basis)
     lsm = zeros(3*nb)
