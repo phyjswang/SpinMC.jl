@@ -40,7 +40,7 @@ end
 
     afpara = √((lsm[1] + lsm[1+3] - lsm[1+6] - lsm[1+9])^2 + (lsm[2] + lsm[2+6] - lsm[2+3] - lsm[2+9])^2) / 4
     push!(observables.afpara, afpara, afpara * afpara)
-    aaperp = (abs(lsm[3]) + abs(lsm[3+3]) + abs(lsm[3+6]) + abs(lsm[3+9])) / 4
+    aaperp = abs((lsm[3] - lsm[3+3] - lsm[3+6] + lsm[3+9]) / 4)
     push!(observables.aaperp, aaperp, aaperp * aaperp)
 
     #measure spin correlations
