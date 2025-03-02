@@ -3,6 +3,7 @@ using TimerOutputs
 
 mutable struct Observables
     energy::ErrorPropagator{Float64,32}
+    magnetization::ErrorPropagator{Float64,32}
     lsmagnetizationVector::LogBinner{Vector{Float64},32,BinningAnalysis.Variance{Vector{Float64}}}
     afpara::ErrorPropagator{Float64,32}
     aaperp::ErrorPropagator{Float64,32}
@@ -14,6 +15,7 @@ end
 
 function Observables(lattice::T) where T<:Lattice
     return Observables(
+        ErrorPropagator(Float64),
         ErrorPropagator(Float64),
         LogBinner(zeros(Float64,12)),
         ErrorPropagator(Float64),
@@ -32,6 +34,9 @@ end
     #measure magnetization
     lsm = getMagnetization(lattice)
     push!(observables.lsmagnetizationVector, lsm)
+
+    m = sum(reshape(lsm,3,:),dims=2)
+    push!(observables.magnetization, norm(m), norm(m)*norm(m))
 
     afpara = √((lsm[1] + lsm[1+3] - lsm[1+6] - lsm[1+9])^2 + (lsm[2] + lsm[2+6] - lsm[2+3] - lsm[2+9])^2) / 4
     push!(observables.afpara, afpara, afpara * afpara)
