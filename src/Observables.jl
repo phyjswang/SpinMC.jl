@@ -11,6 +11,7 @@ mutable struct Observables
     correlation::LogBinner{Array{Float64,2},32,BinningAnalysis.Variance{Array{Float64,2}}}
     correlationXY::LogBinner{Array{Float64,2},32,BinningAnalysis.Variance{Array{Float64,2}}}
     correlationZ::LogBinner{Array{Float64,2},32,BinningAnalysis.Variance{Array{Float64,2}}}
+    timeused::Float64
 end
 
 function Observables(lattice::T) where T<:Lattice
@@ -22,7 +23,8 @@ function Observables(lattice::T) where T<:Lattice
         LogBinner(Float64),
         LogBinner(zeros(Float64,lattice.length, length(lattice.unitcell.basis))),
         LogBinner(zeros(Float64,lattice.length, length(lattice.unitcell.basis))),
-        LogBinner(zeros(Float64,lattice.length, length(lattice.unitcell.basis)))
+        LogBinner(zeros(Float64,lattice.length, length(lattice.unitcell.basis))),
+        0.0
     )
 end
 

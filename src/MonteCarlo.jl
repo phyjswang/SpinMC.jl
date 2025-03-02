@@ -188,7 +188,7 @@ function run!(
     # perform over-relaxation only if there is no onsite interactions
     allowOverRelaxation = maximum(maximum.(mc.lattice.unitcell.interactionsOnsite)) == 0.0 && mc.lattice.unitcell.dipolar == 0.0
 
-    while mc.sweep < totalSweeps
+    timeused = @elapsed while mc.sweep < totalSweeps
         # perform over-relaxation step
         if allowOverRelaxation && mc.overRelaxationRate > 0.0
             if mc.overRelaxationRate < 1.0
@@ -313,6 +313,8 @@ function run!(
             end
         end
     end
+
+    mc.observables.timeused = timeused
 
     #write final checkpoint
     if enableOutput
