@@ -24,10 +24,9 @@ function getEnergy_old(lattice::Lattice{D,N})::Float64 where {D,N}
 
         #two-spin interactions
         interactionSites = getInteractionSites(lattice, site)
-        interactionMatrices = getInteractionMatrices(lattice, site)
         for i in 1:length(interactionSites)
             if site > interactionSites[i] # avoid double counting
-                energy += exchangeEnergy(s0, interactionMatrices[i], getSpin(lattice, interactionSites[i]))
+                energy += exchangeEnergy(s0, getInteractionMatrices(lattice, site,i), getSpin(lattice, interactionSites[i]))
             end
         end
 
@@ -44,15 +43,30 @@ end
 # total energy is E = ∑ᵢ HᵢSᵢ
 # Hᵢ = ∑ⱼ AᵢⱼSⱼ / 2 + BᵢSᵢ + Cᵢ
 #    = BᵢSᵢ + (Cᵢ + Dᵢ) / 2
+# note on-site interaction contains two perts!
 function getEnergy(lattice::Lattice{D,N})::Float64 where {D,N}
     energy = 0.0
-    for site in 1:length(lattice)
-        s0 = getSpin(lattice, site)
-        localField = getLocalField(lattice, site)
-        interactionField = getInteractionField(lattice, site)
-        interactionOnsite = getInteractionOnsite(lattice, site)
-        # 1/2 to avoid double counting
-        energy += dot(s0, (localField .+ interactionField) ./ 2 .+ localFieldFromExchangeEnergy(interactionOnsite, s0))
+    if lattice.unitcell.dipolar == 0
+        for site in 1:length(lattice)
+            s0 = getSpin(lattice, site)
+            # 1/2 to avoid double counting
+            energy += dot(
+                s0,
+                (getLocalField(lattice, site) .+ getInteractionField(lattice, site)) ./ 2 .+
+                localFieldFromExchangeEnergy(getInteractionOnsite(lattice, site), s0)
+            )
+        end
+    else
+        for site in 1:length(lattice)
+            s0 = getSpin(lattice, site)
+            # 1/2 to avoid double counting
+            energy += dot(
+                s0,
+                (getLocalField(lattice, site) .+ getInteractionField(lattice, site)) ./ 2 .+
+                localFieldFromExchangeEnergy(getInteractionOnsite(lattice, site), s0) .+
+                localFieldFromExchangeEnergy(getInteractionDipolar(lattice, site, site), s0) .* lattice.unitcell.dipolar
+            )
+        end
     end
     return energy
 end
@@ -92,23 +106,22 @@ function getEnergyDifference(lattice::Lattice{D,N}, site::Int, newState::Tuple{F
 
     # onsite energy difference due to dipolar interaction
     if lattice.unitcell.dipolar ≠ 0.0
-        interactionOnsiteDipolar = lattice.interactionDipolar[site,site]
+        interactionOnsiteDipolar = getInteractionDipolar(lattice, site, site)
         dE += (exchangeEnergy(newState, interactionOnsiteDipolar, newState) - exchangeEnergy(oldState, interactionOnsiteDipolar, oldState)) * lattice.unitcell.dipolar
     end
 
     return dE
 end
 
-# definition of local field is
+# definition of local field is (on-site interactions excluded!)
 # Dᵢ = Cᵢ + ∑ⱼ AᵢⱼSⱼ (j ≠ i)
 @timeit_debug function calLocalField(lattice::Lattice{D,N}, site::Int)::Tuple{Float64,Float64,Float64} where {D,N}
     hx, hy, hz = 0.0, 0.0, 0.0
 
     # two-spin interactions
     interactionSites = getInteractionSites(lattice, site)
-    interactionMatrices = getInteractionMatrices(lattice, site)
     for i in eachindex(interactionSites)
-        localField = localFieldFromExchangeEnergy(interactionMatrices[i], getSpin(lattice, interactionSites[i]))
+        localField = localFieldFromExchangeEnergy(getInteractionMatrices(lattice, site, i), getSpin(lattice, interactionSites[i]))
         hx += localField[1]
         hy += localField[2]
         hz += localField[3]
@@ -123,7 +136,7 @@ end
     # dipolar contribution
     if lattice.unitcell.dipolar ≠ 0.0
         for i in vcat(1:site-1,site+1:lattice.length)
-            localField = localFieldFromExchangeEnergy(lattice.interactionDipolar[site,i], getSpin(lattice, i))
+            localField = localFieldFromExchangeEnergy(getInteractionDipolar(lattice, site, i), getSpin(lattice, i))
             hx += localField[1] * lattice.unitcell.dipolar
             hy += localField[2] * lattice.unitcell.dipolar
             hz += localField[3] * lattice.unitcell.dipolar
@@ -135,36 +148,34 @@ end
 
 # change of local field at site j due to change of spin at site i
 # Dⱼ → D'ⱼ = Dⱼ + Aⱼᵢ dSᵢ
-function updateLocalField_simple!(lattice::Lattice{D,N}, sitej::Int, site::Int, ds::Tuple{Float64,Float64,Float64})::Float64 where {D,N}
+@timeit_debug function updateLocalField_simple!(lattice::Lattice{D,N}, sitej::Int, site::Int, ds::Tuple{Float64,Float64,Float64})::Float64 where {D,N}
     interactionSites = getInteractionSites(lattice, sitej)
-    interactionMatrices = getInteractionMatrices(lattice, sitej)
     idx = findfirst(x -> x == site, interactionSites)
     setLocalField!(
         lattice,
         sitej,
-        getLocalField(lattice, sitej) .+ localFieldFromExchangeEnergy(interactionMatrices[idx], ds)
+        getLocalField(lattice, sitej) .+ localFieldFromExchangeEnergy(getInteractionMatrices(lattice, sitej, idx), ds)
     )
 end
 
-function updateLocalField_complex!(lattice::Lattice{D,N}, sitej::Int, site::Int, ds::Tuple{Float64,Float64,Float64})::Float64 where {D,N}
+@timeit_debug function updateLocalField_complex!(lattice::Lattice{D,N}, sitej::Int, site::Int, ds::Tuple{Float64,Float64,Float64})::Float64 where {D,N}
     interactionSites = getInteractionSites(lattice, sitej)
-    interactionMatrices = getInteractionMatrices(lattice, sitej)
     idx = findfirst(x -> x == site, interactionSites)
     setLocalField!(
         lattice,
         sitej,
         getLocalField(lattice, sitej) .+
-        localFieldFromExchangeEnergy(interactionMatrices[idx], ds) .+
-        localFieldFromExchangeEnergy(lattice.interactionDipolar[sitej, site], ds) .* lattice.unitcell.dipolar
+        localFieldFromExchangeEnergy(getInteractionMatrices(lattice, sitej, idx), ds) .+
+        localFieldFromExchangeEnergy(getInteractionDipolar(lattice, sitej, site), ds) .* lattice.unitcell.dipolar
     )
 end
 
-function updateLocalField_dipolar!(lattice::Lattice{D,N}, sitej::Int, site::Int, ds::Tuple{Float64,Float64,Float64})::Float64 where {D,N}
+@timeit_debug function updateLocalField_dipolar!(lattice::Lattice{D,N}, sitej::Int, site::Int, ds::Tuple{Float64,Float64,Float64})::Float64 where {D,N}
     setLocalField!(
         lattice,
         sitej,
         getLocalField(lattice, sitej) .+
-        localFieldFromExchangeEnergy(lattice.interactionDipolar[sitej, site], ds) .* lattice.unitcell.dipolar
+        localFieldFromExchangeEnergy(getInteractionDipolar(lattice, sitej, site), ds) .* lattice.unitcell.dipolar
     )
 end
 

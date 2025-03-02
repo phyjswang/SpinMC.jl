@@ -92,7 +92,7 @@ end
     end
 end
 
-@timeit_debug function localSweep!(mc::MonteCarlo{T}, statistics::MonteCarloStatistics, energy::Float64) where T<:Lattice
+@timeit_debug function metropolisSweep!(mc::MonteCarlo{T}, statistics::MonteCarloStatistics, energy::Float64) where T<:Lattice
     for _ in 1:length(mc.lattice)
         #select random spin
         site = rand(mc.rng, 1:length(mc.lattice))
@@ -136,7 +136,7 @@ function run!(
     timer::Bool = false,
     saveDipolarInteraction::Bool = false
 ) where T<:Lattice
-    reset_timer!()
+    timer && reset_timer!()
 
     #init MPI
     rank = 0
@@ -162,6 +162,7 @@ function run!(
         isfile(outfile) && error("File ", outfile, " already exists. Terminating.")
     end
 
+    # initialization
     if mc.sweep == 0
         #init spin configuration
         for i in 1:length(mc.lattice)
@@ -176,6 +177,7 @@ function run!(
     #init Monte Carlo run
     totalSweeps = mc.thermalizationSweeps + mc.measurementSweeps
     partnerSpinConfiguration = deepcopy(mc.lattice.spins)
+    partnerLocalFields = deepcopy(mc.lattice.localFields)
     energy = getEnergy(mc.lattice)
 
     #launch Monte Carlo run
@@ -205,7 +207,7 @@ function run!(
         end
 
         #perform local sweep
-        energy = localSweep!(mc, statistics, energy)
+        energy = metropolisSweep!(mc, statistics, energy)
         statistics.sweeps += 1
 
         #perform replica exchange
@@ -226,7 +228,7 @@ function run!(
                 exchangeAccepted = false
                 if iseven(rank)
                     p = exp(-(allBetas[rank + 1] - allBetas[partnerRank + 1]) * (partnerEnergy - energy))
-                    exchangeAccepted = (rand(mc.rng) < min(1.0, p)) ? true : false
+                    exchangeAccepted = (rand(mc.rng) < min(1.0, p))
                     MPISendBool(exchangeAccepted, partnerRank, MPI.COMM_WORLD)
                 else
                     exchangeAccepted = MPIRecvBool(partnerRank, MPI.COMM_WORLD)
@@ -235,6 +237,8 @@ function run!(
                     energy = partnerEnergy
                     MPI.Sendrecv!(mc.lattice.spins, partnerRank, 0, partnerSpinConfiguration, partnerRank, 0, MPI.COMM_WORLD)
                     (mc.lattice.spins, partnerSpinConfiguration) = (partnerSpinConfiguration, mc.lattice.spins)
+                    MPI.Sendrecv!(mc.lattice.localFields, partnerRank, 0, partnerLocalFields, partnerRank, 0, MPI.COMM_WORLD)
+                    (mc.lattice.localFields, partnerLocalFields) = (partnerLocalFields, mc.lattice.localFields)
                     statistics.acceptedReplicaExchanges += 1
                 end
             end
@@ -295,9 +299,7 @@ function run!(
 
             #reset statistics
             statistics = MonteCarloStatistics()
-            if timer
-                print_timer()
-            end
+            timer && print_timer()
         end
 
         #write checkpoint

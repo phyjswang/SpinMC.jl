@@ -25,7 +25,7 @@ function Lattice(
     uc::UnitCell{D},
     L::NTuple{D,Int};
     loadDipolarInteractionTensor::Bool = false,
-    saveDipolarInteractionTensor::Bool = false,
+    saveDipolarInteractionTensor::Bool = true,
     fileDipolarInteraction::String = ""
 ) where D
     #parse interactions
@@ -154,15 +154,20 @@ function Lattice(
     if uc.dipolar ≠ 0.0
         lattice.interactionDipolar = repeat([InteractionMatrix()], lattice.length, lattice.length)
         if loadDipolarInteractionTensor
-            println("Load dipolar interaction tensor from ", fileDipolarInteraction)
-            interactionDipolar = h5read(fileDipolarInteraction,"interactionDipolar")
-            for j in 1:lattice.length, i in 1:lattice.length
-                lattice.interactionDipolar[i,j] = InteractionMatrix(interactionDipolar[i,j]...)
+            if isfile(fileDipolarInteraction)
+                println("Load dipolar interaction tensor from ", fileDipolarInteraction)
+                interactionDipolar = h5read(fileDipolarInteraction,"interactionDipolar")
+                for j in 1:lattice.length, i in 1:lattice.length
+                    lattice.interactionDipolar[i,j] = InteractionMatrix(interactionDipolar[i,j]...)
+                end
+            else
+                error("File for loading dipolar interaction tensor does not exist!")
             end
         else
             timeused = @elapsed addDipolarInteractions!(lattice)
             println("Time used for Ewald sum is ", ceil(timeused), "s.")
             if saveDipolarInteractionTensor
+                fileDipolarInteraction == "" && error("File for saving dipolar interaction tensor is not given!")
                 # only the field `interactionDipolar` is saved
                 ## make sure the folder exists
                 isdir(dirname(fileDipolarInteraction)) || mkpath(dirname(fileDipolarInteraction))
@@ -212,8 +217,8 @@ function getInteractionSites(lattice::Lattice{D,N}, site::Int)::NTuple{N,Int} wh
     return lattice.interactionSites[site]
 end
 
-function getInteractionMatrices(lattice::Lattice{D,N}, site::Int)::NTuple{N,InteractionMatrix} where {D,N}
-    return lattice.interactionMatrices[site]
+function getInteractionMatrices(lattice::Lattice{D,N}, site::Int, i::Int)::InteractionMatrix where {D,N}
+    return (lattice.interactionMatrices[site])[i]
 end
 
 function getInteractionOnsite(lattice::Lattice{D,N}, site::Int)::InteractionMatrix where {D,N}
@@ -222,4 +227,8 @@ end
 
 function getInteractionField(lattice::Lattice{D,N}, site::Int)::NTuple{3,Float64} where {D,N}
     return lattice.interactionField[site]
+end
+
+function getInteractionDipolar(lattice::Lattice{D,N}, sitei::Int, sitej::Int)::InteractionMatrix where {D,N}
+    return lattice.interactionDipolar[sitei, sitej]
 end

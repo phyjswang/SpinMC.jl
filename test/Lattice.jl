@@ -26,10 +26,10 @@
     @test length(lattice) == 4*4*2
 
     for i in 1:length(lattice) ; setSpin!(lattice, i, i.*(1.0,2.0,3.0)) ; end
-    for i in 1:length(lattice) 
+    for i in 1:length(lattice)
         @test getSpin(lattice, i) == i.*(1.0,2.0,3.0)
     end
-    
+
     sitepositions = Vector{NTuple{2,Float64}}(undef,0)
     for n1 in 0:3
         for n2 in 0:3
@@ -54,16 +54,15 @@
         getSitePosition(lattice, i) == (3.0, 0.0) && (@test SpinMC.getInteractionField(lattice, i) == Tuple(4.0*ones(3)))
 
         interactionsites = SpinMC.getInteractionSites(lattice, i)
-        interactionmatrices = SpinMC.getInteractionMatrices(lattice, i)
-        
-        for j in 1:length(interactionsites)
+
+        for j in eachindex(interactionsites)
             offset = getSitePosition(lattice, interactionsites[j]) .- getSitePosition(lattice, i)
             if all(offset .≈ (1.0, 0.0))
-                @test interactionmatrices[j] == SpinMC.InteractionMatrix(JKx)
+                @test SpinMC.getInteractionMatrices(lattice, i, j) == SpinMC.InteractionMatrix(JKx)
             elseif all(offset .≈ (-1/2, sqrt(3)/2))
-                @test interactionmatrices[j] == SpinMC.InteractionMatrix(JKy)
+                @test SpinMC.getInteractionMatrices(lattice, i, j) == SpinMC.InteractionMatrix(JKy)
             elseif all(offset .≈ (-1/2, -sqrt(3)/2))
-                @test interactionmatrices[j] == SpinMC.InteractionMatrix(JKz)
+                @test SpinMC.getInteractionMatrices(lattice, i, j) == SpinMC.InteractionMatrix(JKz)
             end
         end
     end
@@ -78,7 +77,7 @@
     addInteraction!(uc, b, b, [1.0 0.0 0.0; 0.0 1.0 0.0; 0.0 0.0 1.0], (0,1,0))
     addInteraction!(uc, b, b, [1.0 0.0 0.0; 0.0 1.0 0.0; 0.0 0.0 1.0], (0,0,1))
     Lx = 2
-    Ly = 3 
+    Ly = 3
     Lz = 4
     lattice = Lattice(uc, (Lx, Ly, Lz))
 
@@ -101,7 +100,7 @@
         end
 
         interactionsites = SpinMC.getInteractionSites(lattice, i)
-        for j in 1:length(interactionsites)
+        for j in eachindex(interactionsites)
             @test getSitePosition(lattice, interactionsites[j]) in neighbors
         end
     end
