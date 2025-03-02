@@ -55,7 +55,7 @@ function writeMonteCarlo(filename::String, mc::MonteCarlo{Lattice{D,N}}) where {
         f["mc/observables/correlationZ/error"] = std_error(mc.observables.correlationZ)
 
         ns = length(mc.lattice)
-        nb = length(mc.lattice.basis)
+        nb = length(mc.lattice.unitcell.basis)
 
         # χ = β * N * (<o²> - <o>²)
         chi(o) = β * (o[2] - o[1] * o[1]) * (ns / nb)
@@ -64,22 +64,22 @@ function writeMonteCarlo(filename::String, mc::MonteCarlo{Lattice{D,N}}) where {
         f["mc/observables/magnetization/error"] = std_errors(mc.observables.magnetization)[1]
         f["mc/observables/magneticSusceptibility/mean"] = mean(mc.observables.magnetization, chi)
         f["mc/observables/magneticSusceptibility/error"] = sqrt(abs(var(mc.observables.magnetization, ∇chi, BinningAnalysis._reliable_level(mc.observables.magnetization))) / mc.observables.magnetization.count[BinningAnalysis._reliable_level(mc.observables.magnetization)])
-        f["mc/observables/afpara/mean"] = mean(mc.observables.afpara)[1]
-        f["mc/observables/afpara/error"] = std_error(mc.observables.afpara)[1]
+        f["mc/observables/afpara/mean"] = means(mc.observables.afpara)[1]
+        f["mc/observables/afpara/error"] = std_errors(mc.observables.afpara)[1]
         f["mc/observables/afparaSusceptibility/mean"] = mean(mc.observables.afpara, chi)
         f["mc/observables/afparaSusceptibility/error"] = sqrt(abs(var(mc.observables.afpara, ∇chi, BinningAnalysis._reliable_level(mc.observables.afpara))) / mc.observables.afpara.count[BinningAnalysis._reliable_level(mc.observables.afpara)])
-        f["mc/observables/aaperp/mean"] = mean(mc.observables.aaperp)[1]
-        f["mc/observables/aaperp/error"] = std_error(mc.observables.aaperp)[1]
-        f["mc/observables/aaperpSusceptibility/mean"] = mean(mc.observables.aaperp)
+        f["mc/observables/aaperp/mean"] = means(mc.observables.aaperp)[1]
+        f["mc/observables/aaperp/error"] = std_errors(mc.observables.aaperp)[1]
+        f["mc/observables/aaperpSusceptibility/mean"] = mean(mc.observables.aaperp, chi)
         f["mc/observables/aaperpSusceptibility/error"] = sqrt(abs(var(mc.observables.aaperp, ∇chi, BinningAnalysis._reliable_level(mc.observables.aaperp))) / mc.observables.aaperp.count[BinningAnalysis._reliable_level(mc.observables.aaperp)])
 
         # Cv = β² * (<E²> - <E>²) / N
         c(e) = β * β * (e[2] - e[1] * e[1]) * ns
         ∇c(e) = [-2.0 * β * β * e[1] * ns, β * β * ns]
-        heat = mean(mc.observables.energy, c)
-        dheat = sqrt(abs(var(mc.observables.energy, ∇c, BinningAnalysis._reliable_level(mc.observables.energy))) / mc.observables.energy.count[BinningAnalysis._reliable_level(mc.observables.energy)])
-        f["mc/observables/specificHeat/mean"] = heat
-        f["mc/observables/specificHeat/error"] = dheat
+        f["mc/observables/specificHeat/mean"] = mean(mc.observables.energy, c)
+        f["mc/observables/specificHeat/error"] = sqrt(abs(var(mc.observables.energy, ∇c, BinningAnalysis._reliable_level(mc.observables.energy))) / mc.observables.energy.count[BinningAnalysis._reliable_level(mc.observables.energy)])
+
+        f["mc/observables/timeused"] = mc.observables.timeused
     end
 end
 
