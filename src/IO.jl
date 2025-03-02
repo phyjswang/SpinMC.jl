@@ -13,7 +13,8 @@ function writeMonteCarlo(filename::String, mc::MonteCarlo{Lattice{D,N}}) where {
         f["checkpoint"] = take!(data)
 
         #write human readable results and parameters
-        f["mc/beta"] = mc.beta
+        β = mc.beta
+        f["mc/beta"] = β
         f["mc/thermalizationSweeps"] = mc.thermalizationSweeps
         f["mc/measurementSweeps"] = mc.measurementSweeps
         f["mc/measurementRate"] = mc.measurementRate
@@ -53,12 +54,12 @@ function writeMonteCarlo(filename::String, mc::MonteCarlo{Lattice{D,N}}) where {
         f["mc/observables/correlationZ/mean"] = mean(mc.observables.correlationZ)
         f["mc/observables/correlationZ/error"] = std_error(mc.observables.correlationZ)
 
-        N = length(mc.lattice)
+        ns = length(mc.lattice)
         nb = length(mc.lattice.basis)
 
         # χ = β * N * (<o²> - <o>²)
-        chi(o) = mc.beta * (o[2] - o[1] * o[1]) * (N / nb)
-        ∇chi(o) = [-2.0 * mc.beta * o[1] * (N/nb), mc.beta * (N/nb)]
+        chi(o) = β * (o[2] - o[1] * o[1]) * (ns / nb)
+        ∇chi(o) = [-2.0 * β * o[1] * (ns/nb), β * (ns/nb)]
         f["mc/observables/magnetization/mean"] = means(mc.observables.magnetization)[1]
         f["mc/observables/magnetization/error"] = std_errors(mc.observables.magnetization)[1]
         f["mc/observables/magneticSusceptibility/mean"] = mean(mc.observables.magnetization, chi)
@@ -73,8 +74,8 @@ function writeMonteCarlo(filename::String, mc::MonteCarlo{Lattice{D,N}}) where {
         f["mc/observables/aaperpSusceptibility/error"] = sqrt(abs(var(mc.observables.aaperp, ∇chi, BinningAnalysis._reliable_level(mc.observables.aaperp))) / mc.observables.aaperp.count[BinningAnalysis._reliable_level(mc.observables.aaperp)])
 
         # Cv = β² * (<E²> - <E>²) / N
-        c(e) = mc.beta * mc.beta * (e[2] - e[1] * e[1]) * length(mc.lattice)
-        ∇c(e) = [-2.0 * mc.beta * mc.beta * e[1] * length(mc.lattice), mc.beta * mc.beta * length(mc.lattice)]
+        c(e) = β * β * (e[2] - e[1] * e[1]) * ns
+        ∇c(e) = [-2.0 * β * β * e[1] * ns, β * β * ns]
         heat = mean(mc.observables.energy, c)
         dheat = sqrt(abs(var(mc.observables.energy, ∇c, BinningAnalysis._reliable_level(mc.observables.energy))) / mc.observables.energy.count[BinningAnalysis._reliable_level(mc.observables.energy)])
         f["mc/observables/specificHeat/mean"] = heat
