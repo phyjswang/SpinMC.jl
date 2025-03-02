@@ -59,12 +59,16 @@ function writeMonteCarlo(filename::String, mc::MonteCarlo{Lattice{D,N}}) where {
         # χ = β * N * (<o²> - <o>²)
         chi(o) = mc.beta * (o[2] - o[1] * o[1]) * (N / nb)
         ∇chi(o) = [-2.0 * mc.beta * o[1] * (N/nb), mc.beta * (N/nb)]
-        f["mc/observables/afpara/mean"] = mean(mc.observables.afpara)
-        f["mc/observables/afpara/error"] = std_error(mc.observables.afpara)
+        f["mc/observables/magnetization/mean"] = means(mc.observables.magnetization)[1]
+        f["mc/observables/magnetization/error"] = std_errors(mc.observables.magnetization)[1]
+        f["mc/observables/magneticSusceptibility/mean"] = mean(mc.observables.magnetization, chi)
+        f["mc/observables/magneticSusceptibility/error"] = sqrt(abs(var(mc.observables.magnetization, ∇chi, BinningAnalysis._reliable_level(mc.observables.magnetization))) / mc.observables.magnetization.count[BinningAnalysis._reliable_level(mc.observables.magnetization)])
+        f["mc/observables/afpara/mean"] = mean(mc.observables.afpara)[1]
+        f["mc/observables/afpara/error"] = std_error(mc.observables.afpara)[1]
         f["mc/observables/afparaSusceptibility/mean"] = mean(mc.observables.afpara, chi)
         f["mc/observables/afparaSusceptibility/error"] = sqrt(abs(var(mc.observables.afpara, ∇chi, BinningAnalysis._reliable_level(mc.observables.afpara))) / mc.observables.afpara.count[BinningAnalysis._reliable_level(mc.observables.afpara)])
-        f["mc/observables/aaperp/mean"] = mean(mc.observables.aaperp)
-        f["mc/observables/aaperp/error"] = std_error(mc.observables.aaperp)
+        f["mc/observables/aaperp/mean"] = mean(mc.observables.aaperp)[1]
+        f["mc/observables/aaperp/error"] = std_error(mc.observables.aaperp)[1]
         f["mc/observables/aaperpSusceptibility/mean"] = mean(mc.observables.aaperp)
         f["mc/observables/aaperpSusceptibility/error"] = sqrt(abs(var(mc.observables.aaperp, ∇chi, BinningAnalysis._reliable_level(mc.observables.aaperp))) / mc.observables.aaperp.count[BinningAnalysis._reliable_level(mc.observables.aaperp)])
 
