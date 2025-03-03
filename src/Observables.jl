@@ -4,7 +4,7 @@ using TimerOutputs
 mutable struct Observables
     energy::ErrorPropagator{Float64,32}
     magnetization::ErrorPropagator{Float64,32}
-    lsmagnetizationVector::LogBinner{Vector{Float64},32,BinningAnalysis.Variance{Vector{Float64}}}
+    phi::LogBinner{Float64,32,BinningAnalysis.Variance{Float64}}
     afpara::ErrorPropagator{Float64,32}
     aaperp::ErrorPropagator{Float64,32}
     correlation::LogBinner{Array{Float64,2},32,BinningAnalysis.Variance{Array{Float64,2}}}
@@ -17,7 +17,7 @@ function Observables(lattice::T) where T<:Lattice
     return Observables(
         ErrorPropagator(Float64),
         ErrorPropagator(Float64),
-        LogBinner(zeros(Float64,12)),
+        LogBinner(Float64),
         ErrorPropagator(Float64),
         ErrorPropagator(Float64),
         LogBinner(zeros(Float64,lattice.length, length(lattice.unitcell.basis))),
@@ -33,7 +33,7 @@ end
 
     #measure magnetization
     lsm = getMagnetization(lattice)
-    push!(observables.lsmagnetizationVector, lsm)
+    push!(observables.phi, (acos(abs(lsm[1])/√(lsm[1]^2+lsm[2]^2)) + acos(abs(lsm[1+3])/√(lsm[1+3]^2+lsm[2+3]^2)) + acos(abs(lsm[1+6])/√(lsm[1+6]^2+lsm[2+6]^2)) + acos(abs(lsm[1+9])/√(lsm[1+9]^2+lsm[2+9]^2)))/4)
 
     m = sum(reshape(lsm,3,:),dims=2)
     push!(observables.magnetization, norm(m), norm(m)*norm(m))

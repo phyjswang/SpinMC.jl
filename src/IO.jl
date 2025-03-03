@@ -45,14 +45,14 @@ function writeMonteCarlo(filename::String, mc::MonteCarlo{Lattice{D,N}}) where {
 
         f["mc/observables/energyDensity/mean"] = means(mc.observables.energy)[1]
         f["mc/observables/energyDensity/error"] = std_errors(mc.observables.energy)[1]
-        f["mc/observables/magnetizationVector/mean"] = mean(mc.observables.lsmagnetizationVector)
-        f["mc/observables/magnetizationVector/error"] = std_error(mc.observables.lsmagnetizationVector)
         f["mc/observables/correlation/mean"] = mean(mc.observables.correlation)
         f["mc/observables/correlation/error"] = std_error(mc.observables.correlation)
         f["mc/observables/correlationXY/mean"] = mean(mc.observables.correlationXY)
         f["mc/observables/correlationXY/error"] = std_error(mc.observables.correlationXY)
         f["mc/observables/correlationZ/mean"] = mean(mc.observables.correlationZ)
         f["mc/observables/correlationZ/error"] = std_error(mc.observables.correlationZ)
+        f["mc/observables/phi/mean"] = mean(mc.observables.phi)
+        f["mc/observables/phi/error"] = std_error(mc.observables.phi)
 
         ns = length(mc.lattice)
         nb = length(mc.lattice.unitcell.basis)
