@@ -5,7 +5,7 @@
 
 # Update
 
-## Long-range Dipolar interaction
+## Long-range dipolar interaction
 The dipolar term is $J_D \sum_{i,j,a,b} S_i^a D_{ij}^{ab}S_j^b$, where the dipolar interaction tensor $D_{ij}^{ab} = (\delta^{ab} - 3 e_{ij}^a e_{ij}^b)/r_{ij}^3$.
 To turn it on, simply add a keyword argument in `UnitCell`:
 ```julia
@@ -16,8 +16,6 @@ and tell `Lattice` the position to save/load $D$ tensor:
 lattice = Lattice(
     uc,
     (8, 8),
-    loadDipolarInteractionTensor = false,
-    saveDipolarInteractionTensor = true,
     fileDipolarInteraction = "/path/to/file/square_L=8.h5"
 )
 ```

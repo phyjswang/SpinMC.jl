@@ -22,6 +22,7 @@ function writeMonteCarlo(filename::String, mc::MonteCarlo{Lattice{D,N}}) where {
         f["mc/overRelaxationRate"] = mc.overRelaxationRate
         f["mc/seed"] = mc.seed
         f["mc/sweep"] = mc.sweep
+        f["mc/timeused"] = mc.timeused
 
         # lattice info
         f["mc/lattice/L"] = array(mc.lattice.size)
