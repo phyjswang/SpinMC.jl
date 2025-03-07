@@ -13,7 +13,8 @@ function writeMonteCarlo(filename::String, mc::MonteCarlo{Lattice{D,N}}) where {
         f["checkpoint"] = take!(data)
 
         #write human readable results and parameters
-        f["mc/beta"] = mc.beta
+        β = mc.beta
+        f["mc/beta"] = β
         f["mc/thermalizationSweeps"] = mc.thermalizationSweeps
         f["mc/measurementSweeps"] = mc.measurementSweeps
         f["mc/measurementRate"] = mc.measurementRate
@@ -44,39 +45,41 @@ function writeMonteCarlo(filename::String, mc::MonteCarlo{Lattice{D,N}}) where {
 
         f["mc/observables/energyDensity/mean"] = means(mc.observables.energy)[1]
         f["mc/observables/energyDensity/error"] = std_errors(mc.observables.energy)[1]
-        # f["mc/observables/magnetization/mean"] = mean(mc.observables.magnetization)
-        f["mc/observables/magnetization/mean"] = means(mc.observables.magnetization)[1]
-        # f["mc/observables/magnetization/error"] = std_error(mc.observables.magnetization)
-        f["mc/observables/magnetization/error"] = std_errors(mc.observables.magnetization)[1]
-        f["mc/observables/magnetizationVector/mean"] = mean(mc.observables.magnetizationVector)
-        f["mc/observables/magnetizationVector/error"] = std_error(mc.observables.magnetizationVector)
         f["mc/observables/correlation/mean"] = mean(mc.observables.correlation)
         f["mc/observables/correlation/error"] = std_error(mc.observables.correlation)
         f["mc/observables/correlationXY/mean"] = mean(mc.observables.correlationXY)
         f["mc/observables/correlationXY/error"] = std_error(mc.observables.correlationXY)
         f["mc/observables/correlationZ/mean"] = mean(mc.observables.correlationZ)
         f["mc/observables/correlationZ/error"] = std_error(mc.observables.correlationZ)
+        f["mc/observables/phi/mean"] = mean(mc.observables.phi)
+        f["mc/observables/phi/error"] = std_error(mc.observables.phi)
 
-        f["mc/observables/afpara/mean"] = mean(mc.observables.afpara)
-        f["mc/observables/afpara/error"] = std_error(mc.observables.afpara)
-        f["mc/observables/aaperp/mean"] = mean(mc.observables.aaperp)
-        f["mc/observables/aaperp/error"] = std_error(mc.observables.aaperp)
+        ns = length(mc.lattice)
+        nb = length(mc.lattice.unitcell.basis)
+
+        # χ = β * N * (<o²> - <o>²)
+        chi(o) = β * (o[2] - o[1] * o[1]) * (ns / nb)
+        ∇chi(o) = [-2.0 * β * o[1] * (ns/nb), β * (ns/nb)]
+        f["mc/observables/magnetization/mean"] = means(mc.observables.magnetization)[1]
+        f["mc/observables/magnetization/error"] = std_errors(mc.observables.magnetization)[1]
+        f["mc/observables/magneticSusceptibility/mean"] = mean(mc.observables.magnetization, chi)
+        f["mc/observables/magneticSusceptibility/error"] = sqrt(abs(var(mc.observables.magnetization, ∇chi, BinningAnalysis._reliable_level(mc.observables.magnetization))) / mc.observables.magnetization.count[BinningAnalysis._reliable_level(mc.observables.magnetization)])
+        f["mc/observables/afpara/mean"] = means(mc.observables.afpara)[1]
+        f["mc/observables/afpara/error"] = std_errors(mc.observables.afpara)[1]
+        f["mc/observables/afparaSusceptibility/mean"] = mean(mc.observables.afpara, chi)
+        f["mc/observables/afparaSusceptibility/error"] = sqrt(abs(var(mc.observables.afpara, ∇chi, BinningAnalysis._reliable_level(mc.observables.afpara))) / mc.observables.afpara.count[BinningAnalysis._reliable_level(mc.observables.afpara)])
+        f["mc/observables/aaperp/mean"] = means(mc.observables.aaperp)[1]
+        f["mc/observables/aaperp/error"] = std_errors(mc.observables.aaperp)[1]
+        f["mc/observables/aaperpSusceptibility/mean"] = mean(mc.observables.aaperp, chi)
+        f["mc/observables/aaperpSusceptibility/error"] = sqrt(abs(var(mc.observables.aaperp, ∇chi, BinningAnalysis._reliable_level(mc.observables.aaperp))) / mc.observables.aaperp.count[BinningAnalysis._reliable_level(mc.observables.aaperp)])
 
         # Cv = β² * (<E²> - <E>²) / N
-        c(e) = mc.beta * mc.beta * (e[2] - e[1] * e[1]) * length(mc.lattice)
-        ∇c(e) = [-2.0 * mc.beta * mc.beta * e[1] * length(mc.lattice), mc.beta * mc.beta * length(mc.lattice)]
-        heat = mean(mc.observables.energy, c)
-        dheat = sqrt(abs(var(mc.observables.energy, ∇c, BinningAnalysis._reliable_level(mc.observables.energy))) / mc.observables.energy.count[BinningAnalysis._reliable_level(mc.observables.energy)])
-        f["mc/observables/specificHeat/mean"] = heat
-        f["mc/observables/specificHeat/error"] = dheat
+        c(e) = β * β * (e[2] - e[1] * e[1]) * ns
+        ∇c(e) = [-2.0 * β * β * e[1] * ns, β * β * ns]
+        f["mc/observables/specificHeat/mean"] = mean(mc.observables.energy, c)
+        f["mc/observables/specificHeat/error"] = sqrt(abs(var(mc.observables.energy, ∇c, BinningAnalysis._reliable_level(mc.observables.energy))) / mc.observables.energy.count[BinningAnalysis._reliable_level(mc.observables.energy)])
 
-        # χ = β * N * (<m²> - <m>²)
-        chi(m) = mc.beta * (m[2] - m[1] * m[1]) * length(mc.lattice)
-        ∇chi(m) = [-2.0 * mc.beta * m[1] * length(mc.lattice), mc.beta * length(mc.lattice)]
-        magneticSusceptibility = mean(mc.observables.magnetization, chi)
-        dmagneticSusceptibility = sqrt(abs(var(mc.observables.magnetization, ∇chi, BinningAnalysis._reliable_level(mc.observables.magnetization))) / mc.observables.magnetization.count[BinningAnalysis._reliable_level(mc.observables.magnetization)])
-        f["mc/observables/magneticSusceptibility/mean"] = magneticSusceptibility
-        f["mc/observables/magneticSusceptibility/error"] = dmagneticSusceptibility
+        f["mc/observables/timeused"] = mc.observables.timeused
     end
 end
 

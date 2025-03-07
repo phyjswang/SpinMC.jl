@@ -158,7 +158,7 @@ function run!(
     #init IO
     enableOutput = typeof(outfile) != Nothing
     if enableOutput
-        enableMPI && (outfile *= "." * string(rank))
+        # enableMPI && (outfile *= "." * string(rank))
         isfile(outfile) && error("File ", outfile, " already exists. Terminating.")
     end
 
