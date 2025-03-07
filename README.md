@@ -6,7 +6,7 @@
 # Update
 
 ## Long-range Dipolar interaction
-The dipolar term is $$ J_D \sum_{i,j,a,b} S_i^a D_{ij}^{ab}S_j^b,\quad D_{ij}^{ab} = \frac{\delta^{ab} - 3 e_{ij}^a e_{ij}^b}{r_{ij}^3}. $$
+The dipolar term is $J_D \sum_{i,j,a,b} S_i^a D_{ij}^{ab}S_j^b$, where the dipolar interaction tensor $D_{ij}^{ab} = (\delta^{ab} - 3 e_{ij}^a e_{ij}^b)/r_{ij}^3$.
 To turn it on, simply add a keyword argument in `UnitCell`:
 ```julia
 uc = UnitCell(a1, a2; dipolar = JD)
