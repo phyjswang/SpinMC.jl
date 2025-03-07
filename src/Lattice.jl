@@ -153,6 +153,10 @@ function Lattice(
     # init dipolar interactions
     if uc.dipolar ≠ 0.0
         lattice.interactionDipolar = repeat([InteractionMatrix()], lattice.length, lattice.length)
+        if isfile(fileDipolarInteraction)
+            @warn "fileDipolarInteraction exists, use it instead!" fileDipolarInteraction
+            loadDipolarInteractionTensor = true
+        end
         if loadDipolarInteractionTensor
             if isfile(fileDipolarInteraction)
                 println("Load dipolar interaction tensor from ", fileDipolarInteraction)

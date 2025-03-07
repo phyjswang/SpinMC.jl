@@ -32,7 +32,9 @@ mutable struct MonteCarlo{T<:Lattice,U<:AbstractRNG}
 
     overRelaxationRate::Float64
 
-    observables::Observables
+    observables::AbstractObservables
+
+    timeused::Float64
 end
 
 function MonteCarlo(
@@ -40,13 +42,15 @@ function MonteCarlo(
     beta::Float64,
     thermalizationSweeps::Int,
     measurementSweeps::Int;
+    obs::AbstractObservables = DefaultObservables(lattice),
     measurementRate::Int = 1,
     replicaExchangeRate::Int = 10,
     reportInterval::Int = round(Int, 0.05 * (thermalizationSweeps + measurementSweeps)),
     checkpointInterval::Int = 3600,
     rng::U = copy(Random.GLOBAL_RNG),
     seed::UInt = rand(Random.RandomDevice(),UInt),
-    overRelaxationRate::Float64 = 0.5
+    overRelaxationRate::Float64 = 0.5,
+    timeused::Float64 = 0.0
     ) where T<:Lattice where U<:AbstractRNG
 
     mc = MonteCarlo(
@@ -62,7 +66,8 @@ function MonteCarlo(
         seed,
         0,
         overRelaxationRate,
-        Observables(lattice)
+        obs,
+        timeused
     )
     Random.seed!(mc.rng, mc.seed)
 
@@ -134,7 +139,6 @@ function run!(
     mc::MonteCarlo{T};
     outfile::Union{String,Nothing}=nothing,
     timer::Bool = false,
-    saveDipolarInteraction::Bool = false
 ) where T<:Lattice
     timer && reset_timer!()
 
@@ -158,7 +162,6 @@ function run!(
     #init IO
     enableOutput = typeof(outfile) != Nothing
     if enableOutput
-        # enableMPI && (outfile *= "." * string(rank))
         isfile(outfile) && error("File ", outfile, " already exists. Terminating.")
     end
 
@@ -314,7 +317,7 @@ function run!(
         end
     end
 
-    mc.observables.timeused = timeused
+    mc.timeused += timeused
 
     #write final checkpoint
     if enableOutput

@@ -3,6 +3,113 @@
 [![](https://github.com/fbuessen/SpinMC.jl/actions/workflows/runtests.yml/badge.svg)](https://github.com/fbuessen/SpinMC.jl/actions/workflows/runtests.yml)
 [![codecov](https://codecov.io/gh/fbuessen/SpinMC.jl/branch/master/graph/badge.svg?token=KGWL71KH8F)](https://codecov.io/gh/fbuessen/SpinMC.jl)
 
+# Update
+
+## Long-range Dipolar interaction
+The dipolar term is
+$$
+J_D \sum_{i,j,a,b} S_i^a D_{ij}^{ab}S_j^b,\quad D_{ij}^{ab} = \frac{\delta^{ab} - 3 e_{ij}^a e_{ij}^b}{r_{ij}^3}.
+$$
+To turn it on, simply add a keyword argument in `UnitCell`:
+```julia
+uc = UnitCell(a1, a2; dipolar = JD)
+```
+and tell `Lattice` the position to save/load $D$ tensor:
+```julia
+lattice = Lattice(
+    uc,
+    (8, 8),
+    loadDipolarInteractionTensor = false,
+    saveDipolarInteractionTensor = true,
+    fileDipolarInteraction = "/path/to/file/square_L=8.h5"
+)
+```
+Since the infinite sum for periodic boundary conditions is performed using Edwald's technique, constructing $D$ is time-consuming, and it is better to save it for latter usage.
+Note $D$ depends only on the lattice geometry and lattice size.
+
+## Customized observables
+The default observables measured can be found by checking the corresponding code, which can be found via `methods(performMeasurements!)`.
+To constomize observables, simply construct a concrete type from the abstract one, `AbstractObservable`, and overload two functions, `performMeasurements!` and `saveObservables`.
+The following is a simple example:
+```julia
+mutable struct DSSMObservables <: AbstractObservables
+    energy::ErrorPropagator{Float64,32}
+    magnetization::ErrorPropagator{Float64,32}
+    afpara::ErrorPropagator{Float64,32}
+    aaperp::ErrorPropagator{Float64,32}
+    correlation::LogBinner{Array{Float64,2},32,BinningAnalysis.Variance{Array{Float64,2}}}
+    correlationXY::LogBinner{Array{Float64,2},32,BinningAnalysis.Variance{Array{Float64,2}}}
+    correlationZ::LogBinner{Array{Float64,2},32,BinningAnalysis.Variance{Array{Float64,2}}}
+end
+
+function DSSMObservables(lattice::T) where T<:Lattice
+    return DSSMObservables(
+        ErrorPropagator(Float64),
+        ErrorPropagator(Float64),
+        ErrorPropagator(Float64),
+        ErrorPropagator(Float64),
+        LogBinner(zeros(Float64,lattice.length, length(lattice.unitcell.basis))),
+        LogBinner(zeros(Float64,lattice.length, length(lattice.unitcell.basis))),
+        LogBinner(zeros(Float64,lattice.length, length(lattice.unitcell.basis))),
+    )
+end
+
+function SpinMC.performMeasurements!(observables::DSSMObservables, lattice::T, energy::Float64) where T<:Lattice
+    push!(observables.energy, energy / length(lattice), energy * energy / (length(lattice) * length(lattice)))
+    lsm = getMagnetization(lattice)
+    m = sum(reshape(lsm,3,:),dims=2)
+    push!(observables.magnetization, norm(m), norm(m)*norm(m))
+
+    afpara = √((lsm[1] + lsm[1+3] - lsm[1+6] - lsm[1+9])^2 + (lsm[2] + lsm[2+6] - lsm[2+3] - lsm[2+9])^2) / 4
+    push!(observables.afpara, afpara, afpara * afpara)
+    aaperp = abs((lsm[3] - lsm[3+3] - lsm[3+6] + lsm[3+9]) / 4)
+    push!(observables.aaperp, aaperp, aaperp * aaperp)
+
+    push!(observables.correlation, getCorrelation(lattice))
+    push!(observables.correlationXY, getCorrelationXY(lattice))
+    push!(observables.correlationZ, getCorrelationZ(lattice))
+end
+
+function SpinMC.saveObservables(obs::DSSMObservables, f::SpinMC.HDF5.File, mc::MonteCarlo{T}) where T<:Lattice
+    f["mc/observables/correlation/mean"] = mean(obs.correlation)
+    f["mc/observables/correlation/error"] = std_error(obs.correlation)
+    f["mc/observables/correlationXY/mean"] = mean(obs.correlationXY)
+    f["mc/observables/correlationXY/error"] = std_error(obs.correlationXY)
+    f["mc/observables/correlationZ/mean"] = mean(obs.correlationZ)
+    f["mc/observables/correlationZ/error"] = std_error(obs.correlationZ)
+
+    ns = length(mc.lattice)
+    nb = length(mc.lattice.unitcell.basis)
+    β = mc.beta
+
+    # χ = β * N * (<o²> - <o>²)
+    chi(o) = β * (o[2] - o[1] * o[1]) * (ns / nb)
+    ∇chi(o) = [-2.0 * β * o[1] * (ns/nb), β * (ns/nb)]
+    f["mc/observables/magnetization/mean"] = means(obs.magnetization)[1]
+    f["mc/observables/magnetization/error"] = std_errors(obs.magnetization)[1]
+    f["mc/observables/magneticSusceptibility/mean"] = mean(obs.magnetization, chi)
+    f["mc/observables/magneticSusceptibility/error"] = sqrt(abs(var(obs.magnetization, ∇chi, BinningAnalysis._reliable_level(obs.magnetization))) / obs.magnetization.count[BinningAnalysis._reliable_level(obs.magnetization)])
+    f["mc/observables/afpara/mean"] = means(obs.afpara)[1]
+    f["mc/observables/afpara/error"] = std_errors(obs.afpara)[1]
+    f["mc/observables/afparaSusceptibility/mean"] = mean(obs.afpara, chi)
+    f["mc/observables/afparaSusceptibility/error"] = sqrt(abs(var(obs.afpara, ∇chi, BinningAnalysis._reliable_level(obs.afpara))) / obs.afpara.count[BinningAnalysis._reliable_level(obs.afpara)])
+    f["mc/observables/aaperp/mean"] = means(obs.aaperp)[1]
+    f["mc/observables/aaperp/error"] = std_errors(obs.aaperp)[1]
+    f["mc/observables/aaperpSusceptibility/mean"] = mean(obs.aaperp, chi)
+    f["mc/observables/aaperpSusceptibility/error"] = sqrt(abs(var(obs.aaperp, ∇chi, BinningAnalysis._reliable_level(obs.aaperp))) / obs.aaperp.count[BinningAnalysis._reliable_level(obs.aaperp)])
+
+    # Cv = β² * (<E²> - <E>²) / N
+    c(e) = β * β * (e[2] - e[1] * e[1]) * ns
+    ∇c(e) = [-2.0 * β * β * e[1] * ns, β * β * ns]
+    f["mc/observables/energyDensity/mean"] = means(obs.energy)[1]
+    f["mc/observables/energyDensity/error"] = std_errors(obs.energy)[1]
+    f["mc/observables/specificHeat/mean"] = mean(obs.energy, c)
+    f["mc/observables/specificHeat/error"] = sqrt(abs(var(obs.energy, ∇c, BinningAnalysis._reliable_level(obs.energy))) / obs.energy.count[BinningAnalysis._reliable_level(obs.energy)])
+end
+```
+
+# Old Doc
+
 The package SpinMC.jl provides a flexible Markov chain Monte Carlo implementation for classical lattice spin models. 
 It is suitable to simulate microscopic spin models which are described by a Hamiltonian of the form 
 
