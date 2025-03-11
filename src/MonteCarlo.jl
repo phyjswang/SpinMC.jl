@@ -139,6 +139,7 @@ function run!(
     mc::MonteCarlo{T};
     outfile::Union{String,Nothing}=nothing,
     timer::Bool = false,
+    isquiet::Bool = false,
 ) where T<:Lattice
     timer && reset_timer!()
 
@@ -155,7 +156,7 @@ function run!(
             allBetas[rank + 1] = mc.beta
             MPI.Allgather!(UBuffer(allBetas, 1), MPI.COMM_WORLD)
             enableMPI = true
-            rank == 0 && @printf("MPI detected. Enabling replica exchanges across %d simulations.\n", commSize)
+            rank == 0 && !isquiet && @printf("MPI detected. Enabling replica exchanges across %d simulations.\n", commSize)
         end
     end
 
@@ -186,7 +187,7 @@ function run!(
     #launch Monte Carlo run
     lastCheckpointTime = time()
     statistics = MonteCarloStatistics()
-    rank == 0 && @printf("Simulation started on %s.\n\n", Dates.format(Dates.now(), "dd u yyyy HH:MM:SS"))
+    rank == 0 && !isquiet && @printf("Simulation started on %s.\n\n", Dates.format(Dates.now(), "dd u yyyy HH:MM:SS"))
 
     # perform over-relaxation only if there is no onsite interactions
     allowOverRelaxation = maximum(maximum.(mc.lattice.unitcell.interactionsOnsite)) == 0.0 && mc.lattice.unitcell.dipolar == 0.0
@@ -280,7 +281,7 @@ function run!(
             end
 
             #print statistics
-            if rank == 0
+            if (rank == 0) && !isquiet
                 str = ""
                 str *= @sprintf("Sweep %d / %d (%.1f%%)", mc.sweep, totalSweeps, progress)
                 str *= @sprintf("\t\tETA : %s\n", Dates.format(Dates.now() + Dates.Second(round(Int64,eta)), "dd u yyyy HH:MM:SS"))
@@ -312,7 +313,7 @@ function run!(
             if checkpointPending
                 writeMonteCarlo(outfile, mc)
                 lastCheckpointTime = time()
-                rank == 0 && @printf("Checkpoint written on %s.\n", Dates.format(Dates.now(), "dd u yyyy HH:MM:SS"))
+                rank == 0 && !isquiet && @printf("Checkpoint written on %s.\n", Dates.format(Dates.now(), "dd u yyyy HH:MM:SS"))
             end
         end
     end
@@ -322,10 +323,10 @@ function run!(
     #write final checkpoint
     if enableOutput
         writeMonteCarlo(outfile, mc)
-        rank == 0 && @printf("Checkpoint written on %s.\n", Dates.format(Dates.now(), "dd u yyyy HH:MM:SS"))
+        rank == 0 && !isquiet && @printf("Checkpoint written on %s.\n", Dates.format(Dates.now(), "dd u yyyy HH:MM:SS"))
     end
 
     #return
-    rank == 0 && @printf("Simulation finished on %s.\n", Dates.format(Dates.now(), "dd u yyyy HH:MM:SS"))
+    rank == 0 && !isquiet && @printf("Simulation finished on %s.\n", Dates.format(Dates.now(), "dd u yyyy HH:MM:SS"))
     return nothing
 end

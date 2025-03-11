@@ -25,7 +25,8 @@ function Lattice(
     uc::UnitCell{D},
     L::NTuple{D,Int};
     saveDipolarInteractionTensor::Bool = true,
-    fileDipolarInteraction::String = ""
+    fileDipolarInteraction::String = "",
+    isquiet::Bool = false,
 ) where D
     #parse interactions
     ##For every basis site b, generate list of sites which b interacts with and store the corresponding interaction sites and matrices.
@@ -153,20 +154,20 @@ function Lattice(
     if uc.dipolar ≠ 0.0
         lattice.interactionDipolar = repeat([InteractionMatrix()], lattice.length, lattice.length)
         if isfile(fileDipolarInteraction)
-            println("Load dipolar interaction tensor from ", fileDipolarInteraction)
+            !isquiet && println("Load dipolar interaction tensor from ", fileDipolarInteraction)
             interactionDipolar = h5read(fileDipolarInteraction,"interactionDipolar")
             for j in 1:lattice.length, i in 1:lattice.length
                 lattice.interactionDipolar[i,j] = InteractionMatrix(interactionDipolar[i,j]...)
             end
         else
             timeused = @elapsed addDipolarInteractions!(lattice)
-            println("Time used for Ewald sum is ", ceil(timeused), "s.")
+            !isquiet && println("Time used for Ewald sum is ", ceil(timeused), "s.")
             if saveDipolarInteractionTensor
                 fileDipolarInteraction == "" && error("File for saving dipolar interaction tensor is not given!")
                 # only the field `interactionDipolar` is saved
                 ## make sure the folder exists
                 isdir(dirname(fileDipolarInteraction)) || mkpath(dirname(fileDipolarInteraction))
-                println("Dipolar interaction tensor is saved to ", fileDipolarInteraction)
+                !isquiet && println("Dipolar interaction tensor is saved to ", fileDipolarInteraction)
                 h5write(fileDipolarInteraction, "interactionDipolar", lattice.interactionDipolar)
             end
         end

@@ -27,7 +27,7 @@ function performMeasurements!(observables::DefaultObservables, lattice::T, energ
 
     #measure magnetization
     lsm = getMagnetization(lattice)
-    m = sum(reshape(lsm,3,:),dims=2)
+    m = sum(reshape(lsm,3,:),dims=2) / length(lattice.unit.basis)
     push!(observables.magnetization, norm(m), norm(m)*norm(m))
 
     #measure spin correlations
