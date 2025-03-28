@@ -316,6 +316,7 @@ function run!(
                 rank == 0 && !isquiet && @printf("Checkpoint written on %s.\n", Dates.format(Dates.now(), "dd u yyyy HH:MM:SS"))
             end
         end
+        flush(stdout)
     end
 
     mc.timeused += timeused
@@ -328,5 +329,137 @@ function run!(
 
     #return
     rank == 0 && !isquiet && @printf("Simulation finished on %s.\n", Dates.format(Dates.now(), "dd u yyyy HH:MM:SS"))
+    return nothing
+end
+
+function runSA!(
+    mc::MonteCarlo{T},
+    changeRate::Float64;
+    outfile::Union{String,Nothing}=nothing,
+    timer::Bool = false,
+    isquiet::Bool = false,
+) where T<:Lattice
+    timer && reset_timer!()
+
+    #init IO
+    enableOutput = typeof(outfile) != Nothing
+    if enableOutput
+        isfile(outfile) && error("File ", outfile, " already exists. Terminating.")
+    end
+
+    # initialization
+    if mc.sweep == 0
+        #init spin configuration
+        for i in 1:length(mc.lattice)
+            setSpin!(mc.lattice, i, uniformOnSphere(mc.rng))
+        end
+        # init local fields
+        for i in 1:length(mc.lattice)
+            setLocalField!(mc.lattice, i, calLocalField(mc.lattice, i))
+        end
+    end
+
+    #init Monte Carlo run
+    totalSweeps = mc.thermalizationSweeps + mc.measurementSweeps
+    energy = getEnergy(mc.lattice)
+
+    #launch Monte Carlo run
+    lastCheckpointTime = time()
+    statistics = MonteCarloStatistics()
+    !isquiet && @printf("Simulation started on %s.\n\n", Dates.format(Dates.now(), "dd u yyyy HH:MM:SS"))
+
+    # perform over-relaxation only if there is no onsite interactions
+    allowOverRelaxation = maximum(maximum.(mc.lattice.unitcell.interactionsOnsite)) == 0.0 && mc.lattice.unitcell.dipolar == 0.0
+
+    timeused = @elapsed while mc.sweep < totalSweeps
+        # TODO over-relaxation
+        # # perform over-relaxation step
+        # if allowOverRelaxation && mc.overRelaxationRate > 0.0
+        #     if mc.overRelaxationRate < 1.0
+        #         if rand(mc.rng) < mc.overRelaxationRate
+        #             overRelaxationSweep!(mc)
+        #         end
+        #     else
+        #         for _ in 1:mc.overRelaxationRate
+        #             overRelaxationSweep!(mc)
+        #         end
+        #     end
+        #     # update local fields after over-relaxation
+        #     for i in 1:length(mc.lattice)
+        #         setLocalField!(mc.lattice, i, calLocalField(mc.lattice, i))
+        #     end
+        # end
+
+        #perform local sweep
+        if mc.sweep ≤ mc.thermalizationSweeps
+            mc.beta *= changeRate^-1
+        end
+        energy = metropolisSweep!(mc, statistics, energy)
+        statistics.sweeps += 1
+
+        #perform measurement
+        if mc.sweep >= mc.thermalizationSweeps
+            if mc.sweep % mc.measurementRate == 0
+                performMeasurements!(mc.observables, mc.lattice, energy)
+            end
+        end
+
+        #increment sweep
+        statistics.sweeps += 1
+        mc.sweep += 1
+
+        #runtime statistics
+        t = time()
+        if mc.sweep % mc.reportInterval == 0
+            #collect statistics
+            progress = 100.0 * mc.sweep / totalSweeps
+            thermalized = (mc.sweep >= mc.thermalizationSweeps) ? "YES" : "NO"
+            sweeprate = statistics.sweeps / (t - statistics.initializationTime)
+            sweeptime = 1.0 / sweeprate
+            eta = (totalSweeps - mc.sweep) / sweeprate
+
+            localUpdateAcceptanceRate = 100.0 * statistics.acceptedLocalUpdates / statistics.attemptedLocalUpdates
+
+            #print statistics
+            if !isquiet
+                str = ""
+                str *= @sprintf("Sweep %d / %d (%.1f%%)", mc.sweep, totalSweeps, progress)
+                str *= @sprintf("\t\tETA : %s\n", Dates.format(Dates.now() + Dates.Second(round(Int64,eta)), "dd u yyyy HH:MM:SS"))
+                str *= @sprintf("\t\tthermalized : %s\n", thermalized)
+                str *= @sprintf("\t\tsweep rate : %.1f sweeps/s\n", sweeprate)
+                str *= @sprintf("\t\tsweep duration : %.3f ms\n", sweeptime * 1000)
+
+                str *= @sprintf("\t\tupdate acceptance rate: %.2f%%\n", localUpdateAcceptanceRate)
+                str *= @sprintf("\n")
+                print(str)
+            end
+
+            #reset statistics
+            statistics = MonteCarloStatistics()
+            timer && print_timer()
+        end
+
+        #write checkpoint
+        if enableOutput
+            checkpointPending = time() - lastCheckpointTime >= mc.checkpointInterval
+            if checkpointPending
+                writeMonteCarlo(outfile, mc)
+                lastCheckpointTime = time()
+                !isquiet && @printf("Checkpoint written on %s.\n", Dates.format(Dates.now(), "dd u yyyy HH:MM:SS"))
+            end
+        end
+        flush(stdout)
+    end
+
+    mc.timeused += timeused
+
+    #write final checkpoint
+    if enableOutput
+        writeMonteCarlo(outfile, mc)
+        !isquiet && @printf("Checkpoint written on %s.\n", Dates.format(Dates.now(), "dd u yyyy HH:MM:SS"))
+    end
+
+    #return
+    !isquiet && @printf("Simulation finished on %s.\n", Dates.format(Dates.now(), "dd u yyyy HH:MM:SS"))
     return nothing
 end
