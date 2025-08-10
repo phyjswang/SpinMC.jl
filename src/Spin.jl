@@ -40,10 +40,44 @@ function getEnergy_old(lattice::Lattice{D,N})::Float64 where {D,N}
     return energy
 end
 
+
+# definition of local field is
+# Dᵢ = Cᵢ + ∑ⱼ AᵢⱼSⱼ (j ≠ i)
+# On-site interactions are excluded, since they depend on the local spin itself, they should be dealt with separately
+@timeit_debug function calLocalField(lattice::Lattice{D,N}, site::Int)::Tuple{Float64,Float64,Float64} where {D,N}
+    hx, hy, hz = 0.0, 0.0, 0.0
+
+    # two-spin interactions
+    interactionSites = getInteractionSites(lattice, site)
+    for i in eachindex(interactionSites)
+        localField = localFieldFromExchangeEnergy(getInteractionMatrices(lattice, site, i), getSpin(lattice, interactionSites[i]))
+        hx += localField[1]
+        hy += localField[2]
+        hz += localField[3]
+    end
+
+    # onsite field interaction
+    localField = getInteractionField(lattice, site)
+    hx += localField[1]
+    hy += localField[2]
+    hz += localField[3]
+
+    # dipolar contribution
+    if lattice.unitcell.dipolar ≠ 0.0
+        for i in vcat(1:site-1,site+1:lattice.length)
+            localField = localFieldFromExchangeEnergy(getInteractionDipolar(lattice, site, i), getSpin(lattice, i))
+            hx += localField[1] * lattice.unitcell.dipolar
+            hy += localField[2] * lattice.unitcell.dipolar
+            hz += localField[3] * lattice.unitcell.dipolar
+        end
+    end
+
+    return (hx,hy,hz)
+end
+
 # total energy is E = ∑ᵢ HᵢSᵢ
 # Hᵢ = ∑ⱼ AᵢⱼSⱼ / 2 + BᵢSᵢ + Cᵢ
 #    = BᵢSᵢ + (Cᵢ + Dᵢ) / 2
-# note on-site interaction contains two perts!
 function getEnergy(lattice::Lattice{D,N})::Float64 where {D,N}
     energy = 0.0
     if lattice.unitcell.dipolar == 0
@@ -94,7 +128,7 @@ end
 # end
 
 # energy difference contains two terms
-# ΔE = S'ᵢBᵢS'ᵢ - SᵢBᵢSᵢ + Dᵢ ΔSᵢ
+# ΔE = (S'ᵢBᵢS'ᵢ - SᵢBᵢSᵢ) + Dᵢ ΔSᵢ
 function getEnergyDifference(lattice::Lattice{D,N}, site::Int, newState::Tuple{Float64,Float64,Float64})::Float64 where {D,N}
     oldState = getSpin(lattice, site)
     # by definition
@@ -113,51 +147,21 @@ function getEnergyDifference(lattice::Lattice{D,N}, site::Int, newState::Tuple{F
     return dE
 end
 
-# definition of local field is (on-site interactions excluded!)
-# Dᵢ = Cᵢ + ∑ⱼ AᵢⱼSⱼ (j ≠ i)
-@timeit_debug function calLocalField(lattice::Lattice{D,N}, site::Int)::Tuple{Float64,Float64,Float64} where {D,N}
-    hx, hy, hz = 0.0, 0.0, 0.0
-
-    # two-spin interactions
-    interactionSites = getInteractionSites(lattice, site)
-    for i in eachindex(interactionSites)
-        localField = localFieldFromExchangeEnergy(getInteractionMatrices(lattice, site, i), getSpin(lattice, interactionSites[i]))
-        hx += localField[1]
-        hy += localField[2]
-        hz += localField[3]
-    end
-
-    # onsite field interaction
-    localField = getInteractionField(lattice, site)
-    hx += localField[1]
-    hy += localField[2]
-    hz += localField[3]
-
-    # dipolar contribution
-    if lattice.unitcell.dipolar ≠ 0.0
-        for i in vcat(1:site-1,site+1:lattice.length)
-            localField = localFieldFromExchangeEnergy(getInteractionDipolar(lattice, site, i), getSpin(lattice, i))
-            hx += localField[1] * lattice.unitcell.dipolar
-            hy += localField[2] * lattice.unitcell.dipolar
-            hz += localField[3] * lattice.unitcell.dipolar
-        end
-    end
-
-    return (hx,hy,hz)
-end
-
 # change of local field at site j due to change of spin at site i
 # Dⱼ → D'ⱼ = Dⱼ + Aⱼᵢ dSᵢ
+# simple means no dipolar interaction
 @timeit_debug function updateLocalField_simple!(lattice::Lattice{D,N}, sitej::Int, site::Int, ds::Tuple{Float64,Float64,Float64})::Float64 where {D,N}
     interactionSites = getInteractionSites(lattice, sitej)
     idx = findfirst(x -> x == site, interactionSites)
     setLocalField!(
         lattice,
         sitej,
-        getLocalField(lattice, sitej) .+ localFieldFromExchangeEnergy(getInteractionMatrices(lattice, sitej, idx), ds)
+        getLocalField(lattice, sitej) .+
+        localFieldFromExchangeEnergy(getInteractionMatrices(lattice, sitej, idx), ds)
     )
 end
 
+# complex means dipolar interaction is included
 @timeit_debug function updateLocalField_complex!(lattice::Lattice{D,N}, sitej::Int, site::Int, ds::Tuple{Float64,Float64,Float64})::Float64 where {D,N}
     interactionSites = getInteractionSites(lattice, sitej)
     idx = findfirst(x -> x == site, interactionSites)

@@ -51,7 +51,7 @@ function MonteCarlo(
     seed::UInt = rand(Random.RandomDevice(),UInt),
     overRelaxationRate::Float64 = 0.5,
     timeused::Float64 = 0.0
-    ) where T<:Lattice where U<:AbstractRNG
+) where T<:Lattice where U<:AbstractRNG
 
     mc = MonteCarlo(
         deepcopy(lattice),
@@ -81,6 +81,7 @@ end
         oldState = getSpin(mc.lattice, site)
 
         # calculate local field only
+        # NB! definition of local field
         localField = calLocalField(mc.lattice, site)
 
         if norm(localField) > 1e-8 # avoid division by zero

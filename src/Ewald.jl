@@ -16,7 +16,7 @@ using TimerOutputs
 
     # Superlattice vectors and reciprocals for the full system volume
     if D == 1
-        v1, v2 = lattice.unitcell.primitive
+        v1 = lattice.unitcell.primitive
         v1 = SVector{3}(v1...,0,0)
         v2 = SVector{3}(0,1,0)
         v3 = SVector{3}(0,0,1)

@@ -48,7 +48,7 @@ function Lattice(
         push!(interactionTargetSites[b1], (b2, offset, M))
         @label endb1
 
-        # JW: Note the following means that the bond interaction info is saved twice, once for each site of the bond
+        # JW: Note the following means that the bond interaction info is saved twice, once for each side of the bond
         #locate existing coupling from target site and add interaction matrix
         for i in 1:length(interactionTargetSites[b2])
             if interactionTargetSites[b2][i][1] == b1 && interactionTargetSites[b2][i][2] == (x->-x).(offset)
