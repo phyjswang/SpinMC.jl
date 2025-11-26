@@ -5,7 +5,7 @@ function array(tuple::NTuple{N,T}) where {N,T<:Number}
     return [ x for x in tuple]
 end
 
-function writeMonteCarlo(filename::String, mc::MonteCarlo{Lattice{D,N}}) where {D,N}
+function writeMonteCarlo(filename::String, mc::MonteCarlo{Lattice{D,N,D1}}) where {D,N,D1}
     h5open(filename, "w") do f
         #write binary checkpoint
         data = IOBuffer()

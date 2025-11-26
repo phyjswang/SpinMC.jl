@@ -1,6 +1,6 @@
 using HDF5
 
-mutable struct Lattice{D,N}
+mutable struct Lattice{D,N,D1}
     size::NTuple{D, Int} #linear extent of the lattice in number of unit cells
     length::Int #Number of sites N_sites
     unitcell::UnitCell{D}
@@ -16,7 +16,9 @@ mutable struct Lattice{D,N}
 
     interactionDipolar::Matrix{InteractionMatrix}
 
-    Lattice(D,N) = new{D,N}()
+    sites::Vector{NTuple{D1,Int}}
+
+    Lattice(D,N,D1) = new{D,N,D1}()
 end
 
 include("Ewald.jl")
@@ -63,7 +65,7 @@ function Lattice(
     Ninteractions = findmax([ length(interactionTargetSites[i]) for i in 1:length(uc.basis) ])[1]
 
     #create lattice struct
-    lattice = Lattice(D,Ninteractions)
+    lattice = Lattice(D,Ninteractions,D+1)
     lattice.size = L # linear extent of the lattice in number of unit cells
     lattice.length = prod(L) * length(uc.basis) # total number of sites
     lattice.unitcell = uc
@@ -90,6 +92,7 @@ function Lattice(
     for i in 2:length(sites)
         sites[i] = nextSite(sites[i-1])
     end
+    lattice.sites = sites
 
     #init site positions
     lattice.sitePositions = Vector{NTuple{D,Float64}}(undef, length(sites))
@@ -177,54 +180,54 @@ function Lattice(
     return lattice
 end
 
-function Base.size(lattice::Lattice{D,N}) where {D,N}
+function Base.size(lattice::Lattice{D,N,D1}) where {D,N,D1}
     return lattice.size
 end
 
-function Base.length(lattice::Lattice{D,N}) where {D,N}
+function Base.length(lattice::Lattice{D,N,D1}) where {D,N,D1}
     return lattice.length
 end
 
-function getSpin(lattice::Lattice{D,N}, site::Int) where {D,N}
+function getSpin(lattice::Lattice{D,N,D1}, site::Int) where {D,N,D1}
     return (lattice.spins[1,site], lattice.spins[2,site], lattice.spins[3,site])
 end
 
-function setSpin!(lattice::Lattice{D,N}, site::Int, newState::Tuple{Float64,Float64,Float64}) where {D,N}
+function setSpin!(lattice::Lattice{D,N,D1}, site::Int, newState::Tuple{Float64,Float64,Float64}) where {D,N,D1}
     lattice.spins[1,site] = newState[1]
     lattice.spins[2,site] = newState[2]
     lattice.spins[3,site] = newState[3]
 end
 
-function getLocalField(lattice::Lattice{D,N}, site::Int)::NTuple{3,Float64} where {D,N}
+function getLocalField(lattice::Lattice{D,N,D1}, site::Int)::NTuple{3,Float64} where {D,N,D1}
     return (lattice.localFields[1,site], lattice.localFields[2,site], lattice.localFields[3,site])
 end
 
-function setLocalField!(lattice::Lattice{D,N}, site::Int, newField::Tuple{Float64,Float64,Float64}) where {D,N}
+function setLocalField!(lattice::Lattice{D,N,D1}, site::Int, newField::Tuple{Float64,Float64,Float64}) where {D,N,D1}
     lattice.localFields[1,site] = newField[1]
     lattice.localFields[2,site] = newField[2]
     lattice.localFields[3,site] = newField[3]
 end
 
-function getSitePosition(lattice::Lattice{D,N}, site::Int)::NTuple{D,Float64} where {D,N}
+function getSitePosition(lattice::Lattice{D,N,D1}, site::Int)::NTuple{D,Float64} where {D,N,D1}
     return lattice.sitePositions[site]
 end
 
-function getInteractionSites(lattice::Lattice{D,N}, site::Int)::NTuple{N,Int} where {D,N}
+function getInteractionSites(lattice::Lattice{D,N,D1}, site::Int)::NTuple{N,Int} where {D,N,D1}
     return lattice.interactionSites[site]
 end
 
-function getInteractionMatrices(lattice::Lattice{D,N}, site::Int, i::Int)::InteractionMatrix where {D,N}
+function getInteractionMatrices(lattice::Lattice{D,N,D1}, site::Int, i::Int)::InteractionMatrix where {D,N,D1}
     return (lattice.interactionMatrices[site])[i]
 end
 
-function getInteractionOnsite(lattice::Lattice{D,N}, site::Int)::InteractionMatrix where {D,N}
+function getInteractionOnsite(lattice::Lattice{D,N,D1}, site::Int)::InteractionMatrix where {D,N,D1}
     return lattice.interactionOnsite[site]
 end
 
-function getInteractionField(lattice::Lattice{D,N}, site::Int)::NTuple{3,Float64} where {D,N}
+function getInteractionField(lattice::Lattice{D,N,D1}, site::Int)::NTuple{3,Float64} where {D,N,D1}
     return lattice.interactionField[site]
 end
 
-function getInteractionDipolar(lattice::Lattice{D,N}, sitei::Int, sitej::Int)::InteractionMatrix where {D,N}
+function getInteractionDipolar(lattice::Lattice{D,N,D1}, sitei::Int, sitej::Int)::InteractionMatrix where {D,N,D1}
     return lattice.interactionDipolar[sitei, sitej]
 end

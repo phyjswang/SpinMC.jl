@@ -9,7 +9,7 @@ using TimerOutputs
 (⊗)(a::SVector{3, Float64},b::SVector{3, Float64}) = reshape(kron(a,b), 3, 3)
 
 # a purely geometric quantity, depending only on the system size
-@timeit_debug function addDipolarInteractions!(lattice::Lattice{D,N}) where {D,N}
+@timeit_debug function addDipolarInteractions!(lattice::Lattice{D,N,D1}) where {D,N,D1}
     println("Constructing dipolar interactions tensor, this may take some time!")
 
     na = lattice.length
