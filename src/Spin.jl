@@ -16,7 +16,7 @@ function localFieldFromExchangeEnergy(M::InteractionMatrix, s2::Tuple{Float64,Fl
     return ((M.m11 * s2[1] + M.m12 * s2[2] + M.m13 * s2[3]), (M.m21 * s2[1] + M.m22 * s2[2] + M.m23 * s2[3]), (M.m31 * s2[1] + M.m32 * s2[2] + M.m33 * s2[3]))
 end
 
-function getEnergy_old(lattice::Lattice{D,N,D1})::Float64 where {D,N,D1}
+function getEnergy_old(lattice::Lattice{D,N})::Float64 where {D,N}
     energy = 0.0
 
     for site in 1:length(lattice)
@@ -44,7 +44,7 @@ end
 # definition of local field is
 # Dᵢ = Cᵢ + ∑ⱼ AᵢⱼSⱼ (j ≠ i)
 # On-site interactions are excluded, since they depend on the local spin itself, they should be dealt with separately
-@timeit_debug function calLocalField(lattice::Lattice{D,N,D1}, site::Int)::Tuple{Float64,Float64,Float64} where {D,N,D1}
+@timeit_debug function calLocalField(lattice::Lattice{D,N}, site::Int)::Tuple{Float64,Float64,Float64} where {D,N}
     hx, hy, hz = 0.0, 0.0, 0.0
 
     # two-spin interactions
@@ -78,7 +78,7 @@ end
 # total energy is E = ∑ᵢ HᵢSᵢ
 # Hᵢ = ∑ⱼ AᵢⱼSⱼ / 2 + BᵢSᵢ + Cᵢ
 #    = BᵢSᵢ + (Cᵢ + Dᵢ) / 2
-function getEnergy(lattice::Lattice{D,N,D1})::Float64 where {D,N,D1}
+function getEnergy(lattice::Lattice{D,N})::Float64 where {D,N}
     energy = 0.0
     if lattice.unitcell.dipolar == 0
         for site in 1:length(lattice)
@@ -105,7 +105,7 @@ function getEnergy(lattice::Lattice{D,N,D1})::Float64 where {D,N,D1}
     return energy
 end
 
-# function getEnergyDifference(lattice::Lattice{D,N,D1}, site::Int, newState::Tuple{Float64,Float64,Float64})::Float64 where {D,N,D1}
+# function getEnergyDifference(lattice::Lattice{D,N}, site::Int, newState::Tuple{Float64,Float64,Float64})::Float64 where {D,N}
 #     dE = 0.0
 #     oldState = getSpin(lattice, site)
 #     ds = newState .- oldState
@@ -129,7 +129,7 @@ end
 
 # energy difference contains two terms
 # ΔE = (S'ᵢBᵢS'ᵢ - SᵢBᵢSᵢ) + Dᵢ ΔSᵢ
-function getEnergyDifference(lattice::Lattice{D,N,D1}, site::Int, newState::Tuple{Float64,Float64,Float64})::Float64 where {D,N,D1}
+function getEnergyDifference(lattice::Lattice{D,N}, site::Int, newState::Tuple{Float64,Float64,Float64})::Float64 where {D,N}
     oldState = getSpin(lattice, site)
     # by definition
     dE = dot(newState .- oldState, getLocalField(lattice, site))
@@ -150,7 +150,7 @@ end
 # change of local field at site j due to change of spin at site i
 # Dⱼ → D'ⱼ = Dⱼ + Aⱼᵢ dSᵢ
 # simple means no dipolar interaction
-@timeit_debug function updateLocalField_simple!(lattice::Lattice{D,N,D1}, sitej::Int, site::Int, ds::Tuple{Float64,Float64,Float64})::Float64 where {D,N,D1}
+@timeit_debug function updateLocalField_simple!(lattice::Lattice{D,N}, sitej::Int, site::Int, ds::Tuple{Float64,Float64,Float64})::Float64 where {D,N}
     interactionSites = getInteractionSites(lattice, sitej)
     idx = findfirst(x -> x == site, interactionSites)
     setLocalField!(
@@ -162,7 +162,7 @@ end
 end
 
 # complex means dipolar interaction is included
-@timeit_debug function updateLocalField_complex!(lattice::Lattice{D,N,D1}, sitej::Int, site::Int, ds::Tuple{Float64,Float64,Float64})::Float64 where {D,N,D1}
+@timeit_debug function updateLocalField_complex!(lattice::Lattice{D,N}, sitej::Int, site::Int, ds::Tuple{Float64,Float64,Float64})::Float64 where {D,N}
     interactionSites = getInteractionSites(lattice, sitej)
     idx = findfirst(x -> x == site, interactionSites)
     setLocalField!(
@@ -174,7 +174,7 @@ end
     )
 end
 
-@timeit_debug function updateLocalField_dipolar!(lattice::Lattice{D,N,D1}, sitej::Int, site::Int, ds::Tuple{Float64,Float64,Float64})::Float64 where {D,N,D1}
+@timeit_debug function updateLocalField_dipolar!(lattice::Lattice{D,N}, sitej::Int, site::Int, ds::Tuple{Float64,Float64,Float64})::Float64 where {D,N}
     setLocalField!(
         lattice,
         sitej,
@@ -183,7 +183,7 @@ end
     )
 end
 
-function getMagnetization_old(lattice::Lattice{D,N,D1}) where {D,N,D1}
+function getMagnetization_old(lattice::Lattice{D,N}) where {D,N}
     mx, my, mz = 0.0, 0.0, 0.0
     for i in 1:length(lattice)
         spin = getSpin(lattice, i)
@@ -196,7 +196,7 @@ end
 
 # sublattice dependent magnetization
 # lsm = [m1x, m1y, m1z, m2x, m2y, m2z, ...]
-function getMagnetization(lattice::Lattice{D,N,D1}) where {D,N,D1}
+function getMagnetization(lattice::Lattice{D,N}) where {D,N}
     nb = length(lattice.unitcell.basis)
     lsm = zeros(3*nb)
     for i in 1:length(lattice)
@@ -208,7 +208,7 @@ function getMagnetization(lattice::Lattice{D,N,D1}) where {D,N,D1}
     return lsm ./ (length(lattice)/nb)
 end
 
-function getCorrelation(lattice::Lattice{D,N,D1}) where {D,N,D1}
+function getCorrelation(lattice::Lattice{D,N}) where {D,N}
     corr = zeros(length(lattice), length(lattice.unitcell.basis))
     for i in 1:length(lattice.unitcell.basis)
         s0 = getSpin(lattice, i)
@@ -219,7 +219,7 @@ function getCorrelation(lattice::Lattice{D,N,D1}) where {D,N,D1}
     return corr
 end
 
-function getCorrelationFull(lattice::Lattice{D,N,D1}) where {D,N,D1}
+function getCorrelationFull(lattice::Lattice{D,N}) where {D,N}
     corr = zeros(length(lattice), length(lattice))
     for i in 1:length(lattice)
         s0 = getSpin(lattice, i)
@@ -231,7 +231,7 @@ function getCorrelationFull(lattice::Lattice{D,N,D1}) where {D,N,D1}
     return corr
 end
 
-function getCorrelationXY(lattice::Lattice{D,N,D1}) where {D,N,D1}
+function getCorrelationXY(lattice::Lattice{D,N}) where {D,N}
     corr = zeros(length(lattice), length(lattice.unitcell.basis))
     for i in 1:length(lattice.unitcell.basis)
         s0 = getSpin(lattice, i)
@@ -242,7 +242,7 @@ function getCorrelationXY(lattice::Lattice{D,N,D1}) where {D,N,D1}
     return corr
 end
 
-function getCorrelationFullXY(lattice::Lattice{D,N,D1}) where {D,N,D1}
+function getCorrelationFullXY(lattice::Lattice{D,N}) where {D,N}
     corr = zeros(length(lattice), length(lattice))
     for i in 1:length(lattice)
         s0 = getSpin(lattice, i)
@@ -254,7 +254,7 @@ function getCorrelationFullXY(lattice::Lattice{D,N,D1}) where {D,N,D1}
     return corr
 end
 
-function getCorrelationZ(lattice::Lattice{D,N,D1}) where {D,N,D1}
+function getCorrelationZ(lattice::Lattice{D,N}) where {D,N}
     corr = zeros(length(lattice), length(lattice.unitcell.basis))
     for i in 1:length(lattice.unitcell.basis)
         s0 = getSpin(lattice, i)
