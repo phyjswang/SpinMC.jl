@@ -9,7 +9,7 @@ export Lattice, size, length, getSpin, setSpin!, getSitePosition
 include("Observables.jl")
 export AbstractObservables
 include("Spin.jl")
-export getEnergy, getMagnetization, getCorrelation, getCorrelationXY, getCorrelationZ
+export getEnergy, getMagnetization, getCorrelation, getCorrelationFull, getCorrelationXY, getCorrelationFullXY, getCorrelationZ
 
 include("MonteCarlo.jl")
 export MonteCarlo, run!, runSA!
