@@ -57,8 +57,6 @@ function readMonteCarlo(filename::String)
 end
 
 function saveObservables(obs::DefaultObservables, f::HDF5.File, mc::MonteCarlo{T}) where T<:Lattice
-    f["mc/observables/correlation/mean"] = mean(obs.correlation)
-    f["mc/observables/correlation/error"] = std_error(obs.correlation)
     f["mc/observables/correlationXY/mean"] = mean(obs.correlationXY)
     f["mc/observables/correlationXY/error"] = std_error(obs.correlationXY)
     f["mc/observables/correlationZ/mean"] = mean(obs.correlationZ)
