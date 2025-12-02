@@ -16,6 +16,8 @@ mutable struct Lattice{D,N}
 
     interactionDipolar::Matrix{InteractionMatrix}
 
+    lsOBC::Vector{Int64}
+
     Lattice(D,N) = new{D,N}()
 end
 
@@ -27,6 +29,7 @@ function Lattice(
     saveDipolarInteractionTensor::Bool = true,
     fileDipolarInteraction::String = "",
     isquiet::Bool = false,
+    lsOBC::Vector{Int64} = Int64[]
 ) where D
     #parse interactions
     ##For every basis site b, generate list of sites which b interacts with and store the corresponding interaction sites and matrices.
@@ -139,6 +142,10 @@ function Lattice(
             if j <= length(interactionTargetSites[b])
                 b2, offset, M = interactionTargetSites[b][j]
 
+                if any([ !(0 ≤ site[k] + offset[k] < L[k]) for k in lsOBC])
+                    continue
+                end
+
                 primitiveTarget = [applyPBC(site[k] + offset[k], L[k]) for k in 1:D]
                 targetSite = tuple(primitiveTarget..., b2)
 
@@ -152,6 +159,7 @@ function Lattice(
 
     # init dipolar interactions
     if uc.dipolar ≠ 0.0
+        length(lsOBC) > 0 && error("Currently dipolar only supports PBC!")
         lattice.interactionDipolar = repeat([InteractionMatrix()], lattice.length, lattice.length)
         if isfile(fileDipolarInteraction)
             !isquiet && println("Load dipolar interaction tensor from ", fileDipolarInteraction)

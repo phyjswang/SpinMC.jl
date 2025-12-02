@@ -5,6 +5,9 @@
 
 # Update
 
+## OBC
+Open boundary conditions are supported. One simply uses `Lattice(...; lsOBC = [1,2])`, where the list `lsOBC` indicates the directions to be OBC. All directions will be periodic if not specified.
+
 ## Long-range dipolar interaction
 The dipolar term is $J_D \sum_{i,j,a,b} S_i^a D_{ij}^{ab}S_j^b$, where the dipolar interaction tensor $D_{ij}^{ab} = (\delta^{ab} - 3 e_{ij}^a e_{ij}^b)/r_{ij}^3$.
 To turn it on, simply add a keyword argument in `UnitCell`:
