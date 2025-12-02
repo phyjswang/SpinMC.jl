@@ -70,6 +70,7 @@ function Lattice(
     lattice.size = L # linear extent of the lattice in number of unit cells
     lattice.length = prod(L) * length(uc.basis) # total number of sites
     lattice.unitcell = uc
+    lattice.lsOBC = lsOBC
 
     #generate linear representation of lattice sites to assign integer site IDs
     ##Enumeration sequence is (a1, a2, ..., b) in row-major fashion
